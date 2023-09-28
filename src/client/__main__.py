@@ -3,9 +3,15 @@ import sys; sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file_
 import getpass
 import socket
 import typing as t
+from pathlib import Path
 import watchdog
+import watchdog.events
 from watchdog.observers import Observer
 from core.constants import SERVER_HOST, SERVER_PORT
+from core.packer import pack, unpack
+
+
+ROOT = Path(__file__).parent.parent.absolute()
 
 
 def get_credentials() -> t.Tuple[str, str]:
@@ -18,7 +24,66 @@ def get_credentials() -> t.Tuple[str, str]:
     return username, password
 
 
-class Client:
+class FileSystemEventHandler(watchdog.events.FileSystemEventHandler):
+    def __init__(self, send, path):
+        self.send = send
+        self.path = Path(path)
+
+    def get_relative(self, path: str) -> str:
+        return os.path.join(
+            self.path.name,
+            os.path.relpath(path, self.path)
+        )
+
+    def on_any_event(self, event):
+        print(f"Watchdog: {event!r}")
+
+    def on_created(self, event: watchdog.events.FileCreatedEvent):
+        self.send(
+            command="CREATED",
+            body=dict(
+                src_path=self.get_relative(event.src_path),
+                is_directory=event.is_directory,
+            )
+        )
+
+    def on_deleted(self, event: watchdog.events.FileDeletedEvent):
+        self.send(
+            command="DELETED",
+            body=dict(
+                src_path=self.get_relative(event.src_path),
+                is_directory=event.is_directory,
+            )
+        )
+
+    def on_moved(self, event: watchdog.events.FileMovedEvent):
+        self.send(
+            command="MOVED",
+            body=dict(
+                src_path=self.get_relative(event.src_path),
+                dest_path=self.get_relative(event.dest_path),
+                is_directory=event.is_directory,
+            )
+        )
+
+    def on_modified(self, event: watchdog.events.FileModifiedEvent):
+        #stat = os.stat(event.src_path)
+        #permissions = stat.st_mode & 0o777
+        self.send(
+            command="MODIFIED",
+            body=dict(
+                src_path=self.get_relative(event.src_path),
+                is_directory=event.is_directory,
+                # permissions=permissions,
+                # atime=stat.st_atime,
+                # mtime=stat.st_mtime,
+                # ctime=stat.st_ctime,
+                new_content=None if event.is_directory else Path(event.src_path).read_bytes(),
+            )
+        )
+
+
+class Client(watchdog.events.FileSystemEventHandler):
     OPTIONS = [
         ("ADD", "Add directory to watchlist, and mirror its changes onto the server."),
         ("REMOVE", "Remove directory from watchlist (deletes backup on server aswell)."),
@@ -28,21 +93,36 @@ class Client:
 
     def __init__(self, username: str, password: str):
         self.username, self.password = username, password
+
         self.connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.rfile = self.connection.makefile('rb', -1)
+        self.wfile = self.connection.makefile('wb', 0)
+
         self.watcher = watchdog.observers.Observer()
         self.watcher.start()  # todo: move to better place
-        self.directories = []
+        self.directories = {}
+
+    def __del__(self):
+        self.rfile.close()
+        self.wfile.close()
+        self.watcher.stop()
 
     def add_to_watcher(self, path: str):
-        self.watcher.add_handler_for_watch(self, path)
-        self.directories.append(path)
+        print(f"Add directory to watcher: {path!r}")
+        watch = self.watcher.schedule(FileSystemEventHandler(self.send, path), path, recursive=False)
+        self.directories[path] = watch
+        self.send(
+            command="WATCHED",
+            body=dict(
+                src_path=path,
+            )
+        )
 
     def remove_from_watcher(self, path: str):
-        self.watcher.remove_handler_for_watch(self, path)
-        self.directories.remove(path)
-
-    def dispatch(self, event):
-        print(f"Filesystem event: {event}")
+        print(f"Remove directory from watcher: {path!r}")
+        watch = self.directories[path]
+        self.watcher.unschedule(watch)
+        del self.directories[path]
 
     def run(self):
         self.connect()
@@ -52,10 +132,32 @@ class Client:
     def connect(self):
         self.connection.connect((SERVER_HOST, SERVER_PORT))
 
+    def send(self, command: str, body):
+        self.wfile.write(pack(dict(
+            command=command,
+            body=body,
+        )))
+
+    def get_response(self) -> t.Tuple[str, dict]:
+        message = unpack(self.rfile)
+        print(f"Got: {message!r}")
+        command = message['command']
+        body = message['body']
+        return command, body
+
     def authenticate(self):
-        message = f"AUTH:{self.username}:{self.password}"
-        self.connection.sendall(message.encode())
-        # TODO: Check response
+        self.send(
+            command="AUTH",
+            body=dict(
+                username=self.username,
+                password=self.password,
+            )
+        )
+        command, body = self.get_response()
+        if command != "AUTH":
+            raise KeyError("Bad Response Command")
+        if not body['success']:
+            raise RuntimeError("Login not successful")
 
     def main(self):
         while True:
@@ -85,14 +187,23 @@ class Client:
                 print("Bad Input")
 
     def handle_option(self, option: str):
-        getattr(self, f'handle_option_{option.lower()}')()
+        try:
+            getattr(self, f'handle_option_{option.lower()}')()
+        except Exception as error:
+            print(f"Program says {type(error).__name__} with {error!r}")
 
     def handle_option_add(self):
         directory = input("Directory: ")
+        path = ROOT / directory
+        if not path.is_dir():
+            raise NotADirectoryError(f"{directory!r} not found")
         self.add_to_watcher(directory)
 
     def handle_option_remove(self):
         directory = input("Directory: ")
+        path = ROOT / directory
+        if path not in self.directories:
+            raise KeyError(f"{directory!r} not found in watched directories")
         self.remove_from_watcher(directory)
 
     def handle_option_list(self):
@@ -101,7 +212,7 @@ class Client:
             return
         print("Watching following directories:")
         print('-'*50)
-        for directory in self.directories:
+        for directory in self.directories.keys():
             print("-", directory)
         print('-'*50)
 

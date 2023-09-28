@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 
 import os
-import sys
 import enum
 import socket
 import signal
 import szasar
 
 PORT = 6012
-FILES_PATH = "files"
+FILES_PATH = "../files"
 MAX_FILE_SIZE = 10 * 1 << 20 # 10 MiB
 SPACE_MARGIN = 50 * 1 << 20  # 50 MiB
 USERS = ("anonimous", "sar", "sza", "kon")
@@ -35,11 +34,11 @@ def session( s ):
 	state = State.Identification
 
 	while True:
-		message = szasar.recvline( s ).decode( "ascii" )
+		message = szasar.recvline(s).decode("ascii")
 		if not message:
 			return
 
-		if message.startswith( szasar.Command.User ):
+		if message.startswith(szasar.Command.User):
 			if( state != State.Identification ):
 				sendError(s)
 				continue
@@ -51,7 +50,7 @@ def session( s ):
 				sendOK( s )
 				state = State.Authentication
 
-		elif message.startswith( szasar.Command.Password ):
+		elif message.startswith(szasar.Command.Password):
 			if state != State.Authentication:
 				sendError(s)
 				continue
@@ -62,7 +61,7 @@ def session( s ):
 				sendError(s, 3)
 				state = State.Identification
 
-		elif message.startswith( szasar.Command.List ):
+		elif message.startswith(szasar.Command.List):
 			if state != State.Main:
 				sendError(s)
 				continue
@@ -77,7 +76,7 @@ def session( s ):
 			else:
 				s.sendall( message.encode( "ascii" ) )
 
-		elif message.startswith( szasar.Command.Download ):
+		elif message.startswith(szasar.Command.Download):
 			if state != State.Main:
 				sendError(s)
 				continue
@@ -91,7 +90,7 @@ def session( s ):
 				sendOK( s, filesize )
 				state = State.Downloading
 
-		elif message.startswith( szasar.Command.Download2 ):
+		elif message.startswith(szasar.Command.Download2):
 			if state != State.Downloading:
 				sendError(s)
 				continue
@@ -105,7 +104,7 @@ def session( s ):
 				sendOK( s )
 				s.sendall( filedata )
 
-		elif message.startswith( szasar.Command.Upload ):
+		elif message.startswith(szasar.Command.Upload):
 			if state != State.Main:
 				sendError(s)
 				continue
@@ -124,21 +123,21 @@ def session( s ):
 			sendOK( s )
 			state = State.Uploading
 
-		elif message.startswith( szasar.Command.Upload2 ):
+		elif message.startswith(szasar.Command.Upload2):
 			if state != State.Uploading:
 				sendError(s)
 				continue
 			state = State.Main
 			try:
 				with open( os.path.join( FILES_PATH, filename), "wb" ) as f:
-					filedata = szasar.recvall( s, filesize )
+					filedata = szasar.recvall(s, filesize)
 					f.write( filedata )
 			except:
 				sendError(s, 10)
 			else:
 				sendOK( s )
 
-		elif message.startswith( szasar.Command.Delete ):
+		elif message.startswith(szasar.Command.Delete):
 			if state != State.Main:
 				sendError(s)
 				continue
@@ -152,7 +151,7 @@ def session( s ):
 			else:
 				sendOK( s )
 
-		elif message.startswith( szasar.Command.Exit ):
+		elif message.startswith(szasar.Command.Exit):
 			sendOK( s )
 			return
 

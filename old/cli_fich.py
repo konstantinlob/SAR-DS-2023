@@ -81,16 +81,16 @@ if __name__ == "__main__":
 
 	while True:
 		user = input( "Enter the name of the user: " )
-		message = "{}{}\r\n".format( szasar.Command.User, user )
+		message = "{}{}\r\n".format(szasar.Command.User, user)
 		s.sendall( message.encode( "ascii" ) )
-		message = szasar.recvline( s ).decode( "ascii" )
+		message = szasar.recvline(s).decode("ascii")
 		if iserror( message ):
 			continue
 
 		password = getpass.getpass( "Enter the password: " )
-		message = "{}{}\r\n".format( szasar.Command.Password, password )
+		message = "{}{}\r\n".format(szasar.Command.Password, password)
 		s.sendall( message.encode( "ascii" ) )
-		message = szasar.recvline( s ).decode( "ascii" )
+		message = szasar.recvline(s).decode("ascii")
 		if not iserror( message ):
 			break
 
@@ -98,16 +98,16 @@ if __name__ == "__main__":
 		option = Menu.menu()
 
 		if option == Menu.List:
-			message = "{}\r\n".format( szasar.Command.List )
+			message = "{}\r\n".format(szasar.Command.List)
 			s.sendall( message.encode( "ascii" ) )
-			message = szasar.recvline( s ).decode( "ascii" )
+			message = szasar.recvline(s).decode("ascii")
 			if iserror( message ):
 				continue
 			filecount = 0
 			print( "List of available files." )
 			print( "-------------------------------" )
 			while True:
-				line = szasar.recvline( s ).decode("ascii")
+				line = szasar.recvline(s).decode("ascii")
 				if line:
 					filecount += 1
 					fileinfo = line.split( '?' )
@@ -123,18 +123,18 @@ if __name__ == "__main__":
 
 		elif option == Menu.Download:
 			filename = input( "Indicate the file you want to download: " )
-			message = "{}{}\r\n".format( szasar.Command.Download, filename )
+			message = "{}{}\r\n".format(szasar.Command.Download, filename)
 			s.sendall( message.encode( "ascii" ) )
-			message = szasar.recvline( s ).decode ("ascii" )
+			message = szasar.recvline(s).decode ("ascii")
 			if iserror( message ):
 				continue
 			filesize = int( message[2:] )
-			message = "{}\r\n".format( szasar.Command.Download2 )
+			message = "{}\r\n".format(szasar.Command.Download2)
 			s.sendall( message.encode( "ascii" ) )
-			message = szasar.recvline( s ).decode( "ascii" )
+			message = szasar.recvline(s).decode("ascii")
 			if iserror( message ):
 				continue
-			filedata = szasar.recvall( s, filesize )
+			filedata = szasar.recvall(s, filesize)
 			try:
 				with open( filename, "wb" ) as f:
 					f.write( filedata )
@@ -153,30 +153,30 @@ if __name__ == "__main__":
 				print( "File could not be accessed {}.".format( filename ) )
 				continue
 
-			message = "{}{}?{}\r\n".format( szasar.Command.Upload, filename, filesize )
+			message = "{}{}?{}\r\n".format(szasar.Command.Upload, filename, filesize)
 			s.sendall( message.encode( "ascii" ) )
-			message = szasar.recvline( s ).decode( "ascii" )
+			message = szasar.recvline(s).decode("ascii")
 			if iserror( message ):
 				continue
 
-			message = "{}\r\n".format( szasar.Command.Upload2 )
+			message = "{}\r\n".format(szasar.Command.Upload2)
 			s.sendall( message.encode( "ascii" ) )
 			s.sendall( filedata )
-			message = szasar.recvline( s ).decode( "ascii" )
+			message = szasar.recvline(s).decode("ascii")
 			if not iserror( message ):
 				print( "The {} file has been sent successfully".format( filename ) )
 
 		elif option == Menu.Delete:
 			filename = input( "Indicate the file you want to delete: " )
-			message = "{}{}\r\n".format( szasar.Command.Delete, filename )
+			message = "{}{}\r\n".format(szasar.Command.Delete, filename)
 			s.sendall( message.encode( "ascii" ) )
-			message = szasar.recvline( s ).decode( "ascii" )
+			message = szasar.recvline(s).decode("ascii")
 			if not iserror( message ):
 				print( "The file {} has been successfully deleted. ".format( filename ) )
 
 		elif option == Menu.Exit:
-			message = "{}\r\n".format( szasar.Command.Exit )
+			message = "{}\r\n".format(szasar.Command.Exit)
 			s.sendall( message.encode( "ascii" ) )
-			message = szasar.recvline( s ).decode( "ascii" )
+			message = szasar.recvline(s).decode("ascii")
 			break
 	s.close()

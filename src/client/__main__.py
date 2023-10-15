@@ -1,17 +1,26 @@
 import os
 import sys; sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))  # noqa
-import getpass
 import socket
+import getpass
+import datetime
+import argparse
 import typing as t
 from pathlib import Path
 import watchdog
-import watchdog.events
+import watchdog.events as evt
 from watchdog.observers import Observer
 from core.constants import SERVER_HOST, SERVER_PORT
 from core.packer import pack, unpack
 
 
 ROOT = Path(__file__).parent.parent.absolute()
+
+argument_parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+argument_parser.add_argument('--server-host', type=str, help="Host of the server")
+argument_parser.add_argument('--server-port', type=int, help="Port of the server")
+argument_parser.add_argument('--debug', type=bool, action=argparse.BooleanOptionalAction, help="Print more messages")
+args = vars(argument_parser.parse_args())
+DEBUG = args.get("debug", False)
 
 
 def get_credentials() -> t.Tuple[str, str]:
@@ -36,9 +45,10 @@ class FileSystemEventHandler(watchdog.events.FileSystemEventHandler):
         )
 
     def on_any_event(self, event):
-        print(f"Watchdog: {event!r}")
+        if DEBUG:
+            print(f"Watchdog: {datetime.datetime.now().isoformat()} : {event!r}")
 
-    def on_created(self, event: watchdog.events.FileCreatedEvent):
+    def on_created(self, event: t.Union[evt.DirCreatedEvent, evt.FileCreatedEvent]):
         self.send(
             command="CREATED",
             body=dict(
@@ -56,7 +66,7 @@ class FileSystemEventHandler(watchdog.events.FileSystemEventHandler):
             )
         )
 
-    def on_moved(self, event: watchdog.events.FileMovedEvent):
+    def on_moved(self, event: t.Union[evt.DirMovedEvent, evt.FileMovedEvent]):
         self.send(
             command="MOVED",
             body=dict(
@@ -66,7 +76,8 @@ class FileSystemEventHandler(watchdog.events.FileSystemEventHandler):
             )
         )
 
-    def on_modified(self, event: watchdog.events.FileModifiedEvent):
+    def on_modified(self, event: t.Union[evt.DirModifiedEvent, evt.FileModifiedEvent]):
+        fp = Path(event.src_path)
         #stat = os.stat(event.src_path)
         #permissions = stat.st_mode & 0o777
         self.send(
@@ -78,7 +89,7 @@ class FileSystemEventHandler(watchdog.events.FileSystemEventHandler):
                 # atime=stat.st_atime,
                 # mtime=stat.st_mtime,
                 # ctime=stat.st_ctime,
-                new_content=None if event.is_directory else Path(event.src_path).read_bytes(),
+                new_content=None if event.is_directory or not fp.is_file() else fp.read_bytes(),
             )
         )
 
@@ -108,8 +119,10 @@ class Client(watchdog.events.FileSystemEventHandler):
         self.watcher.stop()
 
     def add_to_watcher(self, path: str):
+        if path in self.directories:
+            raise KeyError("Directory is already watched")
         print(f"Add directory to watcher: {path!r}")
-        watch = self.watcher.schedule(FileSystemEventHandler(self.send, path), path, recursive=False)
+        watch = self.watcher.schedule(FileSystemEventHandler(self.send, path), path, recursive=True)
         self.directories[path] = watch
         self.send(
             command="WATCHED",
@@ -130,7 +143,9 @@ class Client(watchdog.events.FileSystemEventHandler):
         return self.main() or 0
 
     def connect(self):
-        self.connection.connect((SERVER_HOST, SERVER_PORT))
+        host = args.get('server_host', SERVER_HOST)
+        port = args.get('server_port', SERVER_PORT)
+        self.connection.connect((host, port))
 
     def send(self, command: str, body):
         self.wfile.write(pack(dict(

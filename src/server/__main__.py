@@ -1,10 +1,12 @@
 import os
 import sys; sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))  # noqa
+import socket
 import traceback
 import socketserver
 from pathlib import Path
 from core.constants import SERVER_HOST as HOST, SERVER_PORT as PORT
 from core.packer import pack, unpack
+from core.network import get_network_identifier
 
 WATCHED_DIRECTORIES_PATH = "../watched"
 FILES_ROOT = Path(WATCHED_DIRECTORIES_PATH).absolute()
@@ -52,7 +54,10 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
             self.do_handshake()
             self.handle_requests()
         except Exception as error:
-            self.handle_error(error=error)
+            try:
+                self.handle_error(error=error)
+            except (ConnectionError, BrokenPipeError):
+                pass
 
     def do_handshake(self):
         command, body = self.get_response()
@@ -121,4 +126,5 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
 if __name__ == '__main__':
     with socketserver.ForkingTCPServer((HOST, PORT), RequestHandlerClass=ConnectionHandler) as server:
         print("Server is up")
+        print(f"Connect client to {get_network_identifier(HOST)}:{PORT} / {socket.getfqdn(HOST)}:{PORT}")
         server.serve_forever()

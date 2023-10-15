@@ -47,7 +47,7 @@ class FileSystemEventHandler(watchdog.events.FileSystemEventHandler):
             )
         )
 
-    def on_deleted(self, event: watchdog.events.FileDeletedEvent):
+    def on_deleted(self, event: t.Union[evt.DirDeletedEvent, evt.FileDeletedEvent]):
         self.send(
             command="DELETED",
             body=dict(

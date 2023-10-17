@@ -143,8 +143,8 @@ class Client(watchdog.events.FileSystemEventHandler):
         return self.main() or 0
 
     def connect(self):
-        host = args.get('server_host', SERVER_HOST)
-        port = args.get('server_port', SERVER_PORT)
+        host = args.get('server_host') if args.get('server_host') else SERVER_HOST
+        port = args.get('server_port') if args.get('server_port') else SERVER_PORT
         self.connection.connect((host, port))
 
     def send(self, command: str, body):

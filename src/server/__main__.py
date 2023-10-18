@@ -31,6 +31,7 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
         body = response['body']
         return command, body
 
+
     def send(self, command: str, body):
         self.wfile.write(pack(dict(
             command=command,
@@ -48,16 +49,30 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
             )
         )
 
+
+    # def handle(self) -> None:
+    #     try:
+    #         print(f"New Request from {self.client_address}")
+    #         self.do_handshake()
+    #         self.handle_requests()
+    #     except Exception as error:
+    #         try:
+    #             self.handle_error(error=error)
+    #         except (ConnectionError, BrokenPipeError):
+    #             pass
+
+
     def handle(self) -> None:
         try:
             print(f"New Request from {self.client_address}")
             self.do_handshake()
             self.handle_requests()
+        except (BrokenPipeError, ConnectionError):
+            pass
         except Exception as error:
-            try:
-                self.handle_error(error=error)
-            except (ConnectionError, BrokenPipeError):
-                pass
+            pass  # This will suppress other exceptions
+        finally:
+            self.request.close()  # Close the client connection
 
     def do_handshake(self):
         command, body = self.get_response()
@@ -80,6 +95,7 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
             )
         )
 
+
     def handle_requests(self):
         while True:
             command, body = self.get_response()
@@ -90,6 +106,7 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
                 raise LookupError("unknown command")
             else:
                 handler(**body)
+
 
     def handle_watched(self, src_path: str):
         src_path = real_path(src_path)

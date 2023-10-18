@@ -97,7 +97,7 @@ class FileSystemEventHandler(watchdog.events.FileSystemEventHandler):
 class Client(watchdog.events.FileSystemEventHandler):
     OPTIONS = [
         ("ADD", "Add directory to watchlist, and mirror its changes onto the server."),
-        ("REMOVE", "Remove directory from watchlist (deletes backup on server aswell)."),
+        ("REMOVE", "Remove directory from watchlist."),
         ("LIST", "List currently watched directories."),
         ("EXIT", "Exit the App."),
     ]

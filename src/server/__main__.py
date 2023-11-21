@@ -1,5 +1,7 @@
 import os
-import sys; sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))  # noqa
+import sys;
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))  # noqa
 import socket
 import traceback
 import socketserver
@@ -14,6 +16,8 @@ FILES_ROOT.mkdir(parents=True, exist_ok=True)
 SPACE_MARGIN = 50 * 1 << 20  # 50 MiB
 USERS = ("anonymous", "sar", "sza", "konstantin")
 PASSWORDS = ("", "sar", "sza", "")
+
+
 # TCP/UDP range ports open: 50000 - 50200
 
 
@@ -31,8 +35,14 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
         body = response['body']
         return command, body
 
-
     def send(self, command: str, body):
+        """
+        Send a message or file to the Client
+
+        :param command:
+        :param body:
+        :return:
+        """
         self.wfile.write(pack(dict(
             command=command,
             body=body,
@@ -49,19 +59,6 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
             )
         )
 
-
-    # def handle(self) -> None:
-    #     try:
-    #         print(f"New Request from {self.client_address}")
-    #         self.do_handshake()
-    #         self.handle_requests()
-    #     except Exception as error:
-    #         try:
-    #             self.handle_error(error=error)
-    #         except (ConnectionError, BrokenPipeError):
-    #             pass
-
-
     def handle(self) -> None:
         try:
             print(f"New Request from {self.client_address}")
@@ -69,8 +66,9 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
             self.handle_requests()
         except (BrokenPipeError, ConnectionError):
             pass
-        except Exception as error:
-            pass  # This will suppress other exceptions
+        # removed: why would we want to catch all Exceptions?
+        #except Exception as error:
+        #    pass  # This will suppress other exceptions
         finally:
             self.request.close()  # Close the client connection
 
@@ -95,7 +93,6 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
             )
         )
 
-
     def handle_requests(self):
         while True:
             command, body = self.get_response()
@@ -106,7 +103,6 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
                 raise LookupError("unknown command")
             else:
                 handler(**body)
-
 
     def handle_watched(self, src_path: str):
         src_path = real_path(src_path)
@@ -119,13 +115,14 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
         else:
             src_path.touch()
 
-    def handle_modified(self, src_path: str, is_directory: bool, new_content: bytes): # permissions, atime, mtime, ctime,
+    def handle_modified(self, src_path: str, is_directory: bool,
+                        new_content: bytes):  # permissions, atime, mtime, ctime,
         src_path = real_path(src_path)
         if new_content is not None:
             with open(src_path, 'wb') as file:
                 file.write(new_content)
-        #src_path.chmod(permissions)
-        #os.utime(src_path, (atime, mtime))
+        # src_path.chmod(permissions)
+        # os.utime(src_path, (atime, mtime))
 
     def handle_moved(self, src_path: str, dest_path: str, is_directory: bool):
         src_path = real_path(src_path)

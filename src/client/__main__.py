@@ -18,14 +18,34 @@ ROOT = Path(__file__).parent.parent.absolute()
 argument_parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 argument_parser.add_argument('--server-host', type=str, help="Host of the server")
 argument_parser.add_argument('--server-port', type=int, help="Port of the server")
+
 argument_parser.add_argument('--debug', type=bool, action=argparse.BooleanOptionalAction, help="Print more messages")
+
+argument_parser.add_argument('--user', type=str, help="Automatically authenticate using this user")
+argument_parser.add_argument('--passwd', type=str, help="Automatically authenticate using this password")
+
 args = vars(argument_parser.parse_args())
 DEBUG = args.get("debug", False)
 
 
 def get_credentials() -> t.Tuple[str, str]:
+    """
+    Get credentials for connecting to the file server
+    :return: username, password
+    """
+
+    # first, check if the credentials were passed as arguments
+    args_user = args.get("user")
+    args_password = args.get("passwd")
+
+    # if the complete credentials were passed as arguments, we are done here.
+    if args_user and args_password:
+        print("Using credentials provided as arguments")
+        return args_user, args_password
+
     try:
-        username = input("Username: ")
+        # If the username was passed as an argument, use it. If not, ask the user now.
+        username = args_user if args_user else input("Username: ")
         password = getpass.getpass("Password: ")
     except KeyboardInterrupt:
         print("Ok Bye")

@@ -1,4 +1,6 @@
 venv
 __pycache__
 watched
-myfolder*
+client_files
+.idea
+!.idea/runConfigurations

@@ -19,13 +19,16 @@ argument_parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefau
 argument_parser.add_argument('--server-host', type=str, help="Host of the server")
 argument_parser.add_argument('--server-port', type=int, help="Port of the server")
 
-argument_parser.add_argument('--debug', type=bool, action=argparse.BooleanOptionalAction, help="Print more messages")
+argument_parser.add_argument('--verbose', type=bool, default=False, action=argparse.BooleanOptionalAction, help="Print more messages")
 
 argument_parser.add_argument('--user', type=str, help="Automatically authenticate using this user")
 argument_parser.add_argument('--passwd', type=str, help="Automatically authenticate using this password")
 
+argument_parser.add_argument('--watch', type=str, help="Watch folders", nargs='*')
+
+
 args = vars(argument_parser.parse_args())
-DEBUG = args.get("debug", False)
+DEBUG = args.get("verbose", False)
 
 
 def get_credentials() -> t.Tuple[str, str]:
@@ -160,6 +163,10 @@ class Client(watchdog.events.FileSystemEventHandler):
     def run(self):
         self.connect()
         self.authenticate()
+
+        for watch_dir in args.get("watch"):
+            self.add_to_watcher(watch_dir)
+
         return self.main() or 0
 
     def connect(self):

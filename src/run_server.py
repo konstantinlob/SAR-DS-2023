@@ -1,10 +1,10 @@
-from stuff import Address
+from flask import Flask, request
+
+from server import PrimaryServer, BackupServer
+from utils import Address
+
 
 def run_server(is_primary: bool = True, host: str = "127.0.0.1", port: int = 5000, primary_at: Address = None):
-    from server import PrimaryServer, BackupServer
-    from stuff import Address
-    from flask import Flask, request
-
     app = Flask(__name__)
     if is_primary:
         server = PrimaryServer(Address(host, port))

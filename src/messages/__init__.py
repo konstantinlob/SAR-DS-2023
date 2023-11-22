@@ -1,6 +1,6 @@
 import requests
 
-from stuff import Address
+from utils import Address
 
 
 def build_url(server: Address, endpoint: str):
@@ -35,10 +35,12 @@ def post(server: Address, endpoint: str, params=None, data=None, client: Address
     if client:
         params["client"] = client
 
-    return requests.post(
+    r = requests.post(
         build_url(server, endpoint),
         params=params,
         data=data
     )
 
-
+    if r.status_code != 200:
+        raise Exception
+    return r

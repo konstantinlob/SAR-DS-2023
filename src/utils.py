@@ -8,6 +8,11 @@ class Address:
 
     @classmethod
     def parse(cls, string):
+        """
+        Parse String to Address object
+        :param string: string
+        :return: Address object
+        """
         ip, port = string.split(":")
         return cls(ip, int(port))
 

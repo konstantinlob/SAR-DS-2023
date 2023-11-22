@@ -2,7 +2,7 @@ import logging
 from sys import stdout
 
 import messages.client
-from stuff import Address
+from utils import Address
 
 logging.basicConfig(stream=stdout, level=logging.INFO)
 

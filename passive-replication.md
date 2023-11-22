@@ -1,60 +1,40 @@
-# DS shit
+# Passive Replication
 
-Ziel: Passive replication
+## Genereller Ablauf
 
-- Primary muss alle Änderungen an Backups weiterleiten
-
-## Szenarien
+- Client schickt Request an Server
+  - bei GET-Request: Primary kann Anfrage direkt beantworten
+  - bei POST-Request: Primary leitet Anfrage an alle Backups weiter. Erst wenn diese Antworten kriegt der Client seine Bestätigung.
 
 ### Anmeldung
 
-- Client kontaktiert Primary und baut Verbindung auf
-- Primary teilt IP des Clients an alle Backups mit
-- Client schickt credentials
-- Primary informiert Backups über Status der Anmeldung
+- Client registriert sich per POST an `client/init`
+- Client authentifiziert sich per POST an `client/auth` mit Nutzername und Passwort
+- Client kann nun Daten synchronisieren etc.
+- Alle Server kennen nun die Adresse des Clients
 
-### Failure im Primary
+### Registrierung eines neuen Backups
 
-#### Konzept
+- Backup kontaktiert Primary
+- Primary fügt Backup zu seiner Liste aller verfügbarer Backups hinzu
+- Primary sendet die vervollständigte Liste an alle Backups
 
-- Backup stellt fest dass Primary ausgefallen ist
-- neuer Primary muss irgendwie gewählt werden
-- Clients und Backups müssen über neuen Primary informiert werden
+### Primary fällt aus
 
-#### Ablauf
+- Ein Client schickt eine Anfrage. Diese kann nicht zugestellt werden, da der Server ausgefallen ist.
+  - Der Client muss die Anfrage jetzt so lange wiederholen, bis er eine Antwort erhält
+- Ein Backup stellt fest, dass der Primary ausgefallen ist
+- Die Backups kontaktieren sich untereinander und wählen einen neuen Primary (z.B. Bully-Algorithmus)
+- Der neue Primary kontaktiert alle Clients und teilt ihnen mit, dass er der neue Primary ist
+- Der nächste Zustellungsversuch des Clients ist jetzt erfolgreich
 
-- Ausfall feststellen: Heartbeat zwischen Primary und Backups?
-- neuen Primary wählen (dafür gibt es Algorithmen)
-- neuer Primary informiert alle Backups und Clients
-	- diese brechen dann die Verbindung zum alten Primary ab und bauen eine neue auf
-	- dafür muss der Primary die IPs aller Clients und Backups kennen, diese müssen auch auf neue Meldungen warten
+### Backup fällt aus
 
-## Umsetzung
+- Primary schickt routinemäßig eine Anfrage an ein Backup
+- Timeout der Anfrage
+- Primary entfernt dieses Backup aus Liste aller verfügbaren Backups
+- aktualisierte Liste wird den Backups mitgeteilt
 
-### Client
-
-#### Variablen
-
-- **IP/Port** von aktuellem Primary
-
-#### Verbindungen
-
-- als Client: dauerhafte Verbindung zum Primary
-- als Server: kleine Schnittstelle über die ein neuer Primary mitgeteilt werden kann
-
-### Server
-
-#### Variablen
-
-- IPs aller anderen Server
-- IPs und Login-Status aller Clients
-- aktuelle Rolle: Primary / Backup
-- 
-
-## Beispielhafter Ablauf
-
-1. Client stellt sich vor: `client/init/`
-2. Client meldet sich an: `client/auth`
 
 ## Endpoints
 

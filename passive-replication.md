@@ -50,3 +50,24 @@ Ziel: Passive replication
 - IPs und Login-Status aller Clients
 - aktuelle Rolle: Primary / Backup
 - 
+
+## Beispielhafter Ablauf
+
+1. Client stellt sich vor: `client/init/`
+2. Client meldet sich an: `client/auth`
+
+## Endpoints
+
+All messages contain a parameter that indicates the original source of the message:
+- `client=<Address>`: The message was forwarded by the server, the original sender is the `client`.
+- `port=<int>`: The message was sent directly by the client.
+
+### Server
+
+| Path                      | Parameters             | Purpose                                                                               |
+|---------------------------|------------------------|---------------------------------------------------------------------------------------|
+| `client/init`             |                        | Register a new client                                                                 |
+| `client/auth`             | `username`, `password` | Authenticate the client                                                               |
+| `client/demo-message`     | `message`              | Print the message on all servers. Used for demonstrating how messages are replicated. |
+| `replication/init-backup` |                        | Inform the primary that the sender is a new backup server                             |
+| `replication/set-backups` | `backups`              | Inform a backup server about all other backup servers                                 |

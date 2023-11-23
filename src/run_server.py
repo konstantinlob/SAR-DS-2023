@@ -6,11 +6,9 @@ from utils import Address
 import argparse
 
 parser = argparse.ArgumentParser(description='Run an instance of the file server')
-parser.add_argument("-b", "--backup", action="store_true")
 parser.add_argument("--host")
 parser.add_argument("--port")
-parser.add_argument("--primary-host")
-parser.add_argument("--primary-port")
+parser.add_argument("--backup-for")
 
 
 def run_server(is_primary: bool = True, host: str = "127.0.0.1", port: int = 5000, primary_at: Address = None):
@@ -48,12 +46,16 @@ def run_server(is_primary: bool = True, host: str = "127.0.0.1", port: int = 500
 
 
 if __name__ == "__main__":
-    args = parser.parse_args()
+    args = vars(parser.parse_args())
 
-    is_primary = not args.backup
-    host = args.host
-    port = int(args.port)
+    if "backup_for" in args:
+        is_primary = False
+        primary_at = Address.parse(args["backup_for"])
+    else:
+        is_primary = True
+        primary_at = None
 
-    primary_at = Address(args.primary_host, args.primary_port) if not is_primary else None
+    host = args["host"]
+    port = int(args["port"])
 
     run_server(is_primary=is_primary, host=host, port=port, primary_at=primary_at)

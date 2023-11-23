@@ -124,6 +124,9 @@ class PrimaryServer(Server):
     def __init__(self, address: Address):
         super().__init__(address)
 
+    def run(self):
+        logging.info("Starting primary server")
+
     def forward_client_request(self, request: Request):
         """
         Forwards a client request to all backup servers.
@@ -198,6 +201,7 @@ class BackupServer(Server):
         """
         Sign up with the primary server
         """
+        logging.info("Starting backup server")
         logging.info("Registering as new backup server")
         r = messages.post(self.primary_server, "replication/init-backup", port=self.address.port)
 

@@ -3,9 +3,19 @@ from flask import Flask, request
 from server import PrimaryServer, BackupServer
 from utils import Address
 
+import argparse
+
+parser = argparse.ArgumentParser(description='Run an instance of the file server')
+parser.add_argument("-b", "--backup", action="store_true")
+parser.add_argument("--host")
+parser.add_argument("--port")
+parser.add_argument("--primary-host")
+parser.add_argument("--primary-port")
+
 
 def run_server(is_primary: bool = True, host: str = "127.0.0.1", port: int = 5000, primary_at: Address = None):
     app = Flask(__name__)
+
     if is_primary:
         server = PrimaryServer(Address(host, port))
 
@@ -27,4 +37,23 @@ def run_server(is_primary: bool = True, host: str = "127.0.0.1", port: int = 500
     def demo_message():
         return server.handle_client_demo_message(request)
 
-    app.run(host=host, port=port, debug=True)
+    @app.post("/replication/set-backups")
+    def replication_set_backup():
+        return server.handle_replication_set_backup(request)
+
+    server.run()
+
+    app.run(host=host, port=port, debug=False)
+
+
+
+if __name__ == "__main__":
+    args = parser.parse_args()
+
+    is_primary = not args.backup
+    host = args.host
+    port = int(args.port)
+
+    primary_at = Address(args.primary_host, args.primary_port) if not is_primary else None
+
+    run_server(is_primary=is_primary, host=host, port=port, primary_at=primary_at)

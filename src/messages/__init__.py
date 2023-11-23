@@ -24,12 +24,6 @@ def post(server: Address, endpoint: str, params=None, data=None, client: Address
     if data is None:
         data = {}
 
-    # confirm that either the original client or the port is set, but not both
-    if client is None and port is None:
-        raise ValueError
-    if client is not None and port is not None:
-        raise ValueError
-
     if port:
         params["port"] = port
     if client:

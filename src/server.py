@@ -3,6 +3,7 @@ from sys import stdout
 
 from flask import Request, make_response
 from werkzeug.exceptions import BadRequestKeyError
+from requests.exceptions import ConnectionError
 
 import messages.client
 from utils import Address
@@ -26,9 +27,14 @@ class Server:
 
     address: Address
     clients: dict[Address, ConnectedClient] = {}
+    backup_servers: set[Address]
 
     def __init__(self, address: Address):
         self.address = address
+        self.backup_servers = set()
+
+    def run(self):
+        pass
 
     @staticmethod
     def _addr_from_request(request: Request) -> Address:
@@ -69,9 +75,9 @@ class Server:
         client = self.clients[client_addr]
         if credentials_valid(username, password):
             client.is_authenticated = True
-            logging.info(f"Authenticated {client}")
+            logging.info(f"Authenticated {client_addr}")
         else:
-            logging.info(f"Invalid authentication attempt from {client}")
+            logging.info(f"Invalid authentication attempt from {client_addr}")
 
     def client_demo_message(self, message: str):
         """
@@ -106,13 +112,17 @@ class Server:
         self.client_demo_message(message)
         return "ACK"
 
+    def handle_replication_set_backup(self, request: Request):
+        backups = Address.deserialize_set(request.form["backups"])
+        logging.info(f"Received new set of backup servers: {set(str(server) for server in backups)}")
+        self.backup_servers = backups
+        return "ACK"
+
 
 class PrimaryServer(Server):
-    backup_servers: set[Address]
 
     def __init__(self, address: Address):
         super().__init__(address)
-        self.backup_servers = set()
 
     def forward_client_request(self, request: Request):
         """
@@ -129,8 +139,25 @@ class PrimaryServer(Server):
             # since the primary server can handle GET requests alone
             raise Exception
 
-        for server in self.backup_servers:
-            messages.post(server, endpoint, params=params, data=data, client=client)
+        # we may need to change the set of active backup servers during the following iteration in case a backup fails.
+        # the actual set must not change during the iteration in Python.
+        # therefore I create a working copy here.
+        backup_servers = self.backup_servers.copy()
+
+        for server in backup_servers:
+            try:
+                messages.post(server, endpoint, params=params, data=data, client=client)
+            except ConnectionError:
+                self.backup_failed(server)
+
+    def backup_failed(self, backup_server: Address):
+        """
+        Mark a backup server as failed and inform other backups about it
+        :param backup_server: The failed server
+        """
+        logging.warning(f"Backup server {backup_server} has failed")
+        self.backup_servers.remove(backup_server)
+        self.replication_share_backups()
 
     def handle_client_init(self, request: Request):
         self.forward_client_request(request)
@@ -146,37 +173,44 @@ class PrimaryServer(Server):
 
     def replication_init_backup(self, backup_addr: Address):
         """
-        Include a new backup server and inform all other backups servers about the new addition
+        Include a new backup server and reply with a list of all backup servers
         :param backup_addr: Address of the new backup server
         """
         logging.info(f"New backup server {backup_addr}")
         self.backup_servers.add(backup_addr)
-        self.replication_share_backups()
-
-    def replication_share_backups(self):
-        pass #TODO
+        return self.backup_servers
 
     def handle_replication_init_backup(self, request: Request):
         new_backup_server = self._addr_from_request(request)
-        self.replication_init_backup(new_backup_server)
-        return "ACK"
+        backup_servers = self.replication_init_backup(new_backup_server)
+        return Address.serialize_set(backup_servers)
 
 
 class BackupServer(Server):
     primary_server: Address
-    other_backup_servers: set[Address]
 
     def __init__(self, address: Address, primary_server: Address):
         super().__init__(address)
         self.primary_server = primary_server
-        self.other_backup_servers = set()
-        self.init()
+        self.backup_servers.add(self.address)
 
-    def init(self):
+    def run(self):
         """
         Sign up with the primary server
         """
         logging.info("Registering as new backup server")
         r = messages.post(self.primary_server, "replication/init-backup", port=self.address.port)
-        if r.status_code != 200:
-            raise Exception
+
+        self.backup_servers = Address.deserialize_set(r.text)
+
+        logging.info(
+            f"Received set of backup servers: {set(str(server) for server in self.backup_servers)}")
+
+        self.share_backups()
+        logging.info("Shared new set of backup servers with all other backups")
+
+    def share_backups(self):
+        for server in self.backup_servers:
+            if server != self.address:
+                messages.post(server, "replication/set-backups",
+                              data={"backups": Address.serialize_set(self.backup_servers)})

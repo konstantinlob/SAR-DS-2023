@@ -15,9 +15,10 @@
 
 ### Registrierung eines neuen Backups
 
-- Backup kontaktiert Primary
+- Backup kontaktiert Primary unter `replication/init-backup`
 - Primary fügt Backup zu seiner Liste aller verfügbarer Backups hinzu
-- Primary sendet die vervollständigte Liste an alle Backups
+- Primary antwortet mit Liste aller anderen Backups
+- Backup kontaktiert alle anderen Backups unter `replication/set-backups` und teilt neue Liste aller Backups mit
 
 ### Primary fällt aus
 

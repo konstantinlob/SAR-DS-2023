@@ -1,16 +1,13 @@
 import os
-import sys;
+import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))  # noqa
-import socket
 import traceback
 import socketserver
 from pathlib import Path
-from core.constants import SERVER_HOST as HOST, SERVER_PORT as PORT
 from core.packer import pack, unpack
-from core.network import get_network_identifier
 
-WATCHED_DIRECTORIES_PATH = "../watched"
+WATCHED_DIRECTORIES_PATH = "watched"
 FILES_ROOT = Path(WATCHED_DIRECTORIES_PATH).absolute()
 FILES_ROOT.mkdir(parents=True, exist_ok=True)
 SPACE_MARGIN = 50 * 1 << 20  # 50 MiB
@@ -67,7 +64,7 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
         except (BrokenPipeError, ConnectionError):
             pass
         # removed: why would we want to catch all Exceptions?
-        #except Exception as error:
+        # except Exception as error:
         #    pass  # This will suppress other exceptions
         finally:
             self.request.close()  # Close the client connection
@@ -96,13 +93,32 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
     def handle_requests(self):
         while True:
             command, body = self.get_response()
+
             print(f"Received command: {command!r}")
             print(f"Received body: {body!r}")
-            handler = getattr(self, f'handle_{command.lower()}', None)
-            if handler is None:
-                raise LookupError("unknown command")
-            else:
-                handler(**body)
+
+            # I really don't like this.
+            # For example, I am sure the IDE will miss this when refractoring the method names.
+
+            # handler = getattr(self, f'handle_{command.lower()}', None)
+            # if handler is None:
+            #    raise LookupError("unknown command")
+            # else:
+            #    handler(**body)
+
+            match command:
+                case "CREATED":
+                    return self.handle_created(**body)
+                case "DELETED":
+                    return self.handle_deleted(**body)
+                case "MOVED":
+                    return self.handle_moved(**body)
+                case "MODIFIED":
+                    return self.handle_modified(**body)
+                case "WATCHED":
+                    return self.handle_watched(**body)
+                case "AUTH":
+                    return self.handle_auth(**body)
 
     def handle_watched(self, src_path: str):
         src_path = real_path(src_path)
@@ -135,10 +151,3 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
             src_path.rmdir()
         else:
             src_path.unlink()
-
-
-if __name__ == '__main__':
-    with socketserver.ForkingTCPServer((HOST, PORT), RequestHandlerClass=ConnectionHandler) as server:
-        print("Server is up")
-        print(f"Connect client to {get_network_identifier(HOST)}:{PORT} / {socket.getfqdn(HOST)}:{PORT}")
-        server.serve_forever()

@@ -9,13 +9,13 @@ Structure of head byte
 +------------+--------------------------+--------------------------------------------------------+
 
 """
-import io
 import enum
+import io
 import math
 import struct
 import typing as t
-from .exceptions import *
 
+from .exceptions import *
 
 PACKED = t.Tuple[int, bytes]
 
@@ -60,7 +60,7 @@ def _pack_head(identifier: Identifier, size: int) -> bytes:
     if size < 16:
         return int.to_bytes((identifier << 5) | 0b00010000 | size, 1, byteorder='big', signed=False)
     else:
-        n_bytes = math.ceil(math.log(size)/math.log(256))
+        n_bytes = math.ceil(math.log(size) / math.log(256))
         size_bytes = int.to_bytes(size, n_bytes, byteorder='big', signed=False)
         head = int.to_bytes((identifier << 5) | len(size_bytes), 1, byteorder='big', signed=False)
         return head + size_bytes
@@ -138,7 +138,7 @@ def _pack_integer(i: int) -> PACKED:
         return 0, b''
     signed = i < 0
     i = abs(i)
-    n_bytes = max(1, math.ceil(math.log(i)/math.log(256)))
+    n_bytes = max(1, math.ceil(math.log(i) / math.log(256)))
     number = int.to_bytes(i, n_bytes, byteorder='big', signed=False)
     return (n_bytes << 1) | signed, number
 

@@ -11,7 +11,7 @@ class RBroadcastMiddleware:
     def __init__(self, deliver_callback, own_address: Address):
         self.deliver_callback = deliver_callback
         self.address = own_address
-        self.broadcaster = BroadcastMiddleware(self.r_deliver)
+        self.broadcaster = BroadcastMiddleware(self.r_deliver, own_address)
 
         self.msgs_received_from_sender: dict[Address, list[int]] = {}
         self.message_id = 0

@@ -7,8 +7,8 @@ class BroadcastMiddleware:
     Provides broadcasting
     """
 
-    def __init__(self, deliver_callback):
-        self.sender = SendReceiveMiddleware(self.deliver)
+    def __init__(self, deliver_callback, addr: Address):
+        self.sender = SendReceiveMiddleware(self.deliver, addr)
         self.deliver_callback = deliver_callback
 
     def broadcast(self, to: set[Address], command, body, meta=None):

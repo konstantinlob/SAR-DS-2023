@@ -4,6 +4,7 @@ from pathlib import Path
 
 from core.messaging.r_broadcast import RBroadcastMiddleware
 from core.messaging.sendreceive import SendReceiveMiddleware
+from core.utils.address import Address
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))  # noqa
 
@@ -26,9 +27,8 @@ def real_path(path: str) -> Path:
 
 
 class FileServer:
-    def __init__(self):
-        self.clients_comm = SendReceiveMiddleware(self.deliver_from_client)
-        self.replica_comm = RBroadcastMiddleware(self.deliver_from_replica)
+    def __init__(self, addr: Address):
+        self.comm = SendReceiveMiddleware(self.deliver_from_client, addr)
 
     def deliver_from_client(self, message):
         command = message["command"]
@@ -50,9 +50,6 @@ class FileServer:
                 return self.handle_file_watched(**body)
             case "AUTH":
                 return self.handle_auth(**body)
-
-    def deliver_from_replica(self, message):
-        raise NotImplementedError
 
     def handle_file_watched(self, src_path: str):
         src_path = real_path(src_path)

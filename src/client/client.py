@@ -27,7 +27,7 @@ class Client:
     def __init__(self, username: str, password: str):
         self.username, self.password = username, password
 
-        self.comm = SendReceiveMiddleware(self.deliver)
+        self.comm = SendReceiveMiddleware(self.deliver, Address("localhost", 50100)) #TODO do NOT hardcode the address
         self.__primary_server = None
 
         self.watcher = watchdog.observers.Observer()

@@ -1,14 +1,15 @@
 import os
-import socket
 import sys
 import typing as t
 from pathlib import Path
 
 import watchdog
 from watchdog.observers import Observer
+from core.utils.address import Address
 
-from core.packer import pack, unpack
 from filesystem import ClientFileSystemEventHandler
+
+from core.messaging.sendreceive import SendReceiveMiddleware
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -26,18 +27,21 @@ class Client:
     def __init__(self, username: str, password: str):
         self.username, self.password = username, password
 
-        self.connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.rfile = self.connection.makefile('rb', -1)
-        self.wfile = self.connection.makefile('wb', 0)
+        self.comm = SendReceiveMiddleware(self.deliver)
+        self.__primary_server = None
 
         self.watcher = watchdog.observers.Observer()
         self.watcher.start()  # todo: move to better place
         self.directories = {}
 
     def __del__(self):
-        self.rfile.close()
-        self.wfile.close()
         self.watcher.stop()
+
+    @property
+    def server(self):
+        if self.__primary_server:
+            return self.__primary_server
+        raise Exception
 
     def add_to_watcher(self, path: str):
         if path in self.directories:
@@ -59,20 +63,17 @@ class Client:
         del self.directories[path]
 
     def connect(self, host, port):
-        self.connection.connect((host, port))
+        self.__primary_server = Address(host, port)
 
     def send(self, command: str, body):
-        self.wfile.write(pack(dict(
-            command=command,
-            body=body,
-        )))
+        self.comm.send(
+            self.server,
+            command,
+            body
+        )
 
-    def get_response(self) -> t.Tuple[str, dict]:
-        message = unpack(self.rfile)
-        print(f"Got: {message!r}")
-        command = message['command']
-        body = message['body']
-        return command, body
+    def deliver(self, message):
+        raise NotImplementedError
 
     def authenticate(self):
         self.send(
@@ -82,11 +83,6 @@ class Client:
                 password=self.password,
             )
         )
-        command, body = self.get_response()
-        if command != "AUTH":
-            raise KeyError("Bad Response Command")
-        if not body['success']:
-            raise RuntimeError("Login not successful")
 
     def main(self):
         while True:

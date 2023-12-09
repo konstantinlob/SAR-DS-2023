@@ -1,2 +1,2 @@
-SERVER_HOST = ""
+SERVER_HOST = "localhost"
 SERVER_PORT = 50000

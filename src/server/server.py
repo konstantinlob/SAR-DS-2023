@@ -1,11 +1,11 @@
 import os
 import sys
+from pathlib import Path
+
+from core.messaging.r_broadcast import RBroadcastMiddleware
+from core.messaging.sendreceive import SendReceiveMiddleware
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))  # noqa
-import traceback
-import socketserver
-from pathlib import Path
-from core.packer import pack, unpack
 
 WATCHED_DIRECTORIES_PATH = "watched"
 FILES_ROOT = Path(WATCHED_DIRECTORIES_PATH).absolute()
@@ -25,114 +25,48 @@ def real_path(path: str) -> Path:
     return real
 
 
-class ConnectionHandler(socketserver.StreamRequestHandler):
-    def get_response(self):
-        response = unpack(self.rfile)
-        command = response['command']
-        body = response['body']
-        return command, body
+class FileServer:
+    def __init__(self):
+        self.clients_comm = SendReceiveMiddleware(self.deliver_from_client)
+        self.replica_comm = RBroadcastMiddleware(self.deliver_from_replica)
 
-    def send(self, command: str, body):
-        """
-        Send a message or file to the Client
+    def deliver_from_client(self, message):
+        command = message["command"]
+        body = message["body"]
 
-        :param command:
-        :param body:
-        :return:
-        """
-        self.wfile.write(pack(dict(
-            command=command,
-            body=body,
-        )))
+        print(f"Received command: {command!r}")
+        print(f"Received body: {body!r}")
 
-    def handle_error(self, error: Exception):
-        print(f"Handle Error: {type(error).__name__}: {error}")
-        traceback.print_exception(type(error), error, error.__traceback__)
-        self.send(
-            command="ERROR",
-            body=dict(
-                error=type(error).__name__,
-                detail=str(error),
-            )
-        )
+        match command:
+            case "CREATED":
+                return self.handle_file_created(**body)
+            case "DELETED":
+                return self.handle_file_deleted(**body)
+            case "MOVED":
+                return self.handle_file_moved(**body)
+            case "MODIFIED":
+                return self.handle_file_modified(**body)
+            case "WATCHED":
+                return self.handle_file_watched(**body)
+            case "AUTH":
+                return self.handle_auth(**body)
 
-    def handle(self) -> None:
-        try:
-            print(f"New Request from {self.client_address}")
-            self.do_handshake()
-            self.handle_requests()
-        except (BrokenPipeError, ConnectionError):
-            pass
-        # removed: why would we want to catch all Exceptions?
-        # except Exception as error:
-        #    pass  # This will suppress other exceptions
-        finally:
-            self.request.close()  # Close the client connection
+    def deliver_from_replica(self, message):
+        raise NotImplementedError
 
-    def do_handshake(self):
-        command, body = self.get_response()
-        if command != "AUTH":
-            raise ValueError("Authentication first required")
-        username = body['username']
-        password = body['password']
-        print(f"Login attempt from {username!r}")
-        try:
-            user_index = USERS.index(username)
-        except ValueError:
-            raise ValueError("User not found")
-        if password != PASSWORDS[user_index]:
-            raise ValueError("Invalid Password")
-        print(f"Login successfully of {username!r}")
-        self.send(
-            command="AUTH",
-            body=dict(
-                success=True,
-            )
-        )
-
-    def handle_requests(self):
-        while True:
-            command, body = self.get_response()
-
-            print(f"Received command: {command!r}")
-            print(f"Received body: {body!r}")
-
-            # I really don't like this.
-            # For example, I am sure the IDE will miss this when refractoring the method names.
-
-            # handler = getattr(self, f'handle_{command.lower()}', None)
-            # if handler is None:
-            #    raise LookupError("unknown command")
-            # else:
-            #    handler(**body)
-
-            match command:
-                case "CREATED":
-                    return self.handle_created(**body)
-                case "DELETED":
-                    return self.handle_deleted(**body)
-                case "MOVED":
-                    return self.handle_moved(**body)
-                case "MODIFIED":
-                    return self.handle_modified(**body)
-                case "WATCHED":
-                    return self.handle_watched(**body)
-                case "AUTH":
-                    return self.handle_auth(**body)
-
-    def handle_watched(self, src_path: str):
+    def handle_file_watched(self, src_path: str):
         src_path = real_path(src_path)
         src_path.mkdir(parents=True, exist_ok=True)
 
-    def handle_created(self, src_path: str, is_directory: bool):
+    def handle_file_created(self, src_path: str, is_directory: bool):
         src_path = real_path(src_path)
         if is_directory:
             src_path.mkdir()
         else:
             src_path.touch()
 
-    def handle_modified(self, src_path: str, is_directory: bool,
-                        new_content: bytes):  # permissions, atime, mtime, ctime,
+    def handle_file_modified(self, src_path: str, is_directory: bool,
+                             new_content: bytes):  # permissions, atime, mtime, ctime,
         src_path = real_path(src_path)
         if new_content is not None:
             with open(src_path, 'wb') as file:
@@ -140,12 +74,12 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
         # src_path.chmod(permissions)
         # os.utime(src_path, (atime, mtime))
 
-    def handle_moved(self, src_path: str, dest_path: str, is_directory: bool):
+    def handle_file_moved(self, src_path: str, dest_path: str, is_directory: bool):
         src_path = real_path(src_path)
         dist_path = real_path(dest_path)
         src_path.rename(dist_path)
 
-    def handle_deleted(self, src_path: str, is_directory: bool):
+    def handle_file_deleted(self, src_path: str, is_directory: bool):
         src_path = real_path(src_path)
         if is_directory:
             src_path.rmdir()

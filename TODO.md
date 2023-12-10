@@ -1,0 +1,5 @@
+- [ ] Send `ACK` to client
+- [ ] The client should wait for responses and panic if the responses are missing
+- [ ] Replication
+- [ ] fix whatever is happening in the receiving part of `sendreceive`
+- [ ] Do not serve files without authentication

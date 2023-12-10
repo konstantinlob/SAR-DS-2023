@@ -1,3 +1,0 @@
-- [ ] Send `ACK` to client
-- [ ] The client should wait for responses and panic if the responses are missing
-- [ ] Replication

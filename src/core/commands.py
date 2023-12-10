@@ -1,10 +1,24 @@
-from enum import Enum
+from enum import Enum, auto
 
-Command = Enum("Command", [
-    "CREATED",
-    "DELETED",
-    "MOVED",
-    "MODIFIED",
-    "WATCHED",
-    "AUTH"
-])
+
+class Command(Enum):
+
+    # FILE MANAGEMENT
+    CREATED = auto()
+    DELETED = auto()
+    MOVED = auto()
+    MODIFIED = auto()
+    WATCHED = auto()
+
+    # CLIENT MANAGEMENT
+
+    # authenticate as new client
+    AUTH = auto()
+
+    # REPLICATION management
+
+    # register a new replication server
+    REPLICATION_JOIN = auto()
+
+    # acknowledge that the previous message has been replicated
+    REPLICATION_ACK = auto()

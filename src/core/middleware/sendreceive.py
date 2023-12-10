@@ -3,8 +3,8 @@ import select
 import socket
 
 from core.address import Address
-from core.packer import pack, unpack
 from core.commands import Command
+from core.packer import pack, unpack
 
 
 class SendReceiveMiddleware:
@@ -26,24 +26,26 @@ class SendReceiveMiddleware:
         # Keep track of active sockets
         self.sockets = [self.server_socket]
 
-    def send(self, to: Address, command: Command, body, meta=None):
+    def send(self, to: Address, command: Command, body, msg_meta=None, broadcast_meta=None):
         """
         Send a message or file to the Client
 
         :param to:
         :param command:
         :param body: Additional parameters for the command
-        :param meta: Metadata inserted by the middleware to provide reliable communication
+        :param broadcast_meta: Metadata inserted by the middleware to provide reliable communication
         :return:
         """
 
-        if not meta: meta = {}
+        if not broadcast_meta: broadcast_meta = {}
+        if not msg_meta: msg_meta = {}
 
         # assemble the dict and convert the Command enum to its value (packer does not understand enums)
         unpacked_message = dict(
             command=command.value,
             body=body,
-            meta=meta
+            msg_meta = msg_meta,
+            broadcast_meta=broadcast_meta
         )
         # pack this dict
         message = pack(unpacked_message)

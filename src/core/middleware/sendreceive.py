@@ -1,6 +1,10 @@
+import logging
+import select
+import socket
+
+from core.address import Address
 from core.packer import pack, unpack
-from core.utils.address import Address
-import socket, select, logging
+from core.commands import Command
 
 
 class SendReceiveMiddleware:
@@ -22,7 +26,7 @@ class SendReceiveMiddleware:
         # Keep track of active sockets
         self.sockets = [self.server_socket]
 
-    def send(self, to: Address, command: str, body, meta=None):
+    def send(self, to: Address, command: Command, body, meta=None):
         """
         Send a message or file to the Client
 
@@ -35,22 +39,32 @@ class SendReceiveMiddleware:
 
         if not meta: meta = {}
 
-        message = pack(dict(
-            command=command,
+        # assemble the dict and convert the Command enum to its value (packer does not understand enums)
+        unpacked_message = dict(
+            command=command.value,
             body=body,
             meta=meta
-        ))
+        )
+        # pack this dict
+        message = pack(unpacked_message)
+        # replace the value representation with the Command enum name for easier displaying
+        unpacked_message["command"] = command.name
 
         # create a new socket
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             # connect to the target
             sock.connect((to.ip, to.port))
+            logging.info(f"New connection to {to}")
             # send the whole message
             sock.sendall(message)
+            logging.info(f"Sent message {unpacked_message}")
             # automatically close the socket
+            logging.info(f"Connection to {to} closed.")
 
     def receive(self, data):
         message = unpack(data)
+        message["command"] = Command(message["command"])
+
         logging.info(f"Received message: {message}")
         self.deliver_callback(message)
 
@@ -69,7 +83,7 @@ class SendReceiveMiddleware:
             else:
                 # Handle data from a connected client
 
-                #TODO this is sus, what happens for longer messages?
+                # TODO this is sus, what happens with longer messages?
                 # Should we use blocking sockets here and just wait until the whole message arrives? How?
                 data = sock.recv(1024)
                 if not data:
@@ -80,4 +94,3 @@ class SendReceiveMiddleware:
                 else:
                     logging.debug(f"Received data: {data}")
                     self.receive(data)
-

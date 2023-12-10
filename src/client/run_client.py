@@ -1,5 +1,6 @@
 import argparse
 import getpass
+import logging
 import typing as t
 from sys import exit
 
@@ -63,4 +64,5 @@ def main():
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
     exit(main())

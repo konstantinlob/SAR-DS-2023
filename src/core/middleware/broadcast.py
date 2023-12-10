@@ -1,5 +1,5 @@
-from core.messaging.sendreceive import SendReceiveMiddleware
-from core.utils.address import Address
+from core.address import Address
+from core.middleware.sendreceive import SendReceiveMiddleware
 
 
 class BroadcastMiddleware:

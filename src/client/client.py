@@ -1,15 +1,14 @@
 import os
 import sys
-import typing as t
 from pathlib import Path
 
 import watchdog
 from watchdog.observers import Observer
-from core.utils.address import Address
 
+from core.address import Address
+from core.commands import Command
+from core.middleware.sendreceive import SendReceiveMiddleware
 from filesystem import ClientFileSystemEventHandler
-
-from core.messaging.sendreceive import SendReceiveMiddleware
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -26,8 +25,9 @@ class Client:
 
     def __init__(self, username: str, password: str):
         self.username, self.password = username, password
+        self.address = Address("localhost", 50100)  # TODO do NOT hardcode the address
 
-        self.comm = SendReceiveMiddleware(self.deliver, Address("localhost", 50100)) #TODO do NOT hardcode the address
+        self.comm = SendReceiveMiddleware(self.deliver, self.address)
         self.__primary_server = None
 
         self.watcher = watchdog.observers.Observer()
@@ -50,7 +50,7 @@ class Client:
         watch = self.watcher.schedule(ClientFileSystemEventHandler(self.send, path), path, recursive=True)
         self.directories[path] = watch
         self.send(
-            command="WATCHED",
+            command=Command.WATCHED,
             body=dict(
                 src_path=path,
             )
@@ -69,7 +69,8 @@ class Client:
         self.comm.send(
             self.server,
             command,
-            body
+            body,
+            dict(client=(self.address.ip, self.address.port))
         )
 
     def deliver(self, message):
@@ -77,7 +78,7 @@ class Client:
 
     def authenticate(self):
         self.send(
-            command="AUTH",
+            command=Command.AUTH,
             body=dict(
                 username=self.username,
                 password=self.password,

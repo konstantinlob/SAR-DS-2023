@@ -1,5 +1,5 @@
-from core.messaging.broadcast import BroadcastMiddleware
-from core.utils.address import Address
+from core.address import Address
+from core.middleware.broadcast import BroadcastMiddleware
 
 
 class RBroadcastMiddleware:

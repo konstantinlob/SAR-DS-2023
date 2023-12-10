@@ -6,6 +6,8 @@ from pathlib import Path
 import watchdog.events as evt
 from watchdog.events import FileSystemEventHandler
 
+from core.commands import Command
+
 
 class ClientFileSystemEventHandler(FileSystemEventHandler):
     def __init__(self, send, path):
@@ -23,7 +25,7 @@ class ClientFileSystemEventHandler(FileSystemEventHandler):
 
     def on_created(self, event: t.Union[evt.DirCreatedEvent, evt.FileCreatedEvent]):
         self.send(
-            command="CREATED",
+            command=Command.CREATED,
             body=dict(
                 src_path=self.get_relative(event.src_path),
                 is_directory=event.is_directory,
@@ -32,7 +34,7 @@ class ClientFileSystemEventHandler(FileSystemEventHandler):
 
     def on_deleted(self, event: t.Union[evt.DirDeletedEvent, evt.FileDeletedEvent]):
         self.send(
-            command="DELETED",
+            command=Command.DELETED,
             body=dict(
                 src_path=self.get_relative(event.src_path),
                 is_directory=event.is_directory,
@@ -41,7 +43,7 @@ class ClientFileSystemEventHandler(FileSystemEventHandler):
 
     def on_moved(self, event: t.Union[evt.DirMovedEvent, evt.FileMovedEvent]):
         self.send(
-            command="MOVED",
+            command=Command.MOVED,
             body=dict(
                 src_path=self.get_relative(event.src_path),
                 dest_path=self.get_relative(event.dest_path),
@@ -54,7 +56,7 @@ class ClientFileSystemEventHandler(FileSystemEventHandler):
         # stat = os.stat(event.src_path)
         # permissions = stat.st_mode & 0o777
         self.send(
-            command="MODIFIED",
+            command=Command.MODIFIED,
             body=dict(
                 src_path=self.get_relative(event.src_path),
                 is_directory=event.is_directory,

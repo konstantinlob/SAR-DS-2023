@@ -1,14 +1,21 @@
-from common.types import Address
-from common.message import Message, Topic, Command
-from common.communication.ack_manager import AckManager
 import logging
 from enum import Enum
 
+from common.communication.ack_manager import AckManager
+from common.message import Message, Topic, Command
+from common.types import Address
+
+
 class ClientState(Enum):
+    # client has just started
     STARTED = 0,
-    INITIALIZING = 1,
+    # client has requested the connection to the group
+    CONNECTING = 1,
+    # client has received server details and is attempting to authenticate
     AUTHENTICATING = 2,
+    # authentication successful, running normally
     RUNNING = 3
+
 
 class Client:
     servers: list[Address]
@@ -16,8 +23,6 @@ class Client:
 
     # the file watcher can create file update messages at any time, but they will only be sent out when the client is ready for it
     file_message_queue: list[Message]
-
-
 
     def __init__(self):
         self.state = ClientState.STARTED
@@ -58,13 +63,13 @@ class Client:
         if self.state != ClientState.STARTED:
             raise RuntimeError()
 
-        # send JOIN message
+        # request connection to the server group
         message = Message(
             Topic.CLIENT,
             Command.KNOCK
         )
 
-        self.state = ClientState.INITIALIZING
+        self.state = ClientState.CONNECTING
         self.comm.r_broadcast({server}, message)
 
     def auth(self) -> None:

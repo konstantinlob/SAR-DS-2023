@@ -1,7 +1,9 @@
+import logging
+from time import time
+
+from common.communication.r_broadcast import RBroadcast
 from common.message import Message, Topic, Command
 from common.types import Address
-from common.communication.r_broadcast import RBroadcast
-from time import time
 
 
 class AckManager:
@@ -57,7 +59,6 @@ class AckManager:
         self.message_id += 1
         self.r_broadcaster.r_broadcast(to, message)
 
-
     def r_broadcast(self, to: set[Address], message: Message):
         """
         Broadcast a message without expecting an acknowledgement
@@ -112,6 +113,7 @@ class AckManager:
             for_message_id = message.meta["ack_manager"]["for_message_id"]
         except KeyError:
             # The message is not an acknowledgement -> forward to handler
+            logging.debug("Message does not contain acknowledgement, forwarding to handler")
             return self.deliver_callback(message)
 
         # only forward the message if it has not been acknowledged before and if it is an actual message
@@ -120,3 +122,5 @@ class AckManager:
 
             if message.command != Command.ACK:
                 self.deliver_callback(message)
+        else:
+            logging.debug("Message is not in list of expected acknowledgements")

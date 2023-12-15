@@ -1,4 +1,5 @@
 from enum import Enum
+
 from common.types import Address
 
 
@@ -22,6 +23,8 @@ class Command(Enum):
     ADD_SERVER = "add_server"
 
     # REPLICATION commands
+    CONNECT = "connect"
+    INITIALIZE = "initialize"
 
 
 class Message:
@@ -30,7 +33,11 @@ class Message:
     params: dict
     meta: dict[dict]
 
-    def __init__(self, topic: Topic, command: Command, params: dict = dict(), meta: dict = dict()) -> None:
+    def __init__(self, topic: Topic, command: Command, params: dict = None, meta: dict = None) -> None:
+        if not params:
+            params = dict()
+        if not meta:
+            meta = dict()
         self.topic = topic
         self.command = command
         self.params = params
@@ -63,4 +70,3 @@ class Message:
         message = cls(topic, command, params, meta)
 
         return message
-

@@ -11,9 +11,10 @@ Structure of head byte
 """
 import enum
 import io
-import math
 import struct
 import typing as t
+
+import math
 
 from .exceptions import *
 

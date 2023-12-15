@@ -59,10 +59,9 @@ Sent from the server to the client:
 
 | Command       | Params                                               | Description                                                       |
 |---------------|:-----------------------------------------------------|-------------------------------------------------------------------|
-| `JOIN`        |                                                      | Contact one of the existing servers and register as a new replica |
+| `CONNECT`     |                                                      | Contact one of the existing servers and register as a new replica |
 | `INITIALIZE`  | `servers`: _list[Address]_, clients: _list[Address]_ | Set/Update the list of all servers                                |
-| `ADD_SERVER`  | `address`: _Address_                                 | Add a new server to the list of all servers                       |
-| `SET_CLIENTS` | ???                                                  | Inform a newly connected server about all active clients          |
+| `ADD_SERVER`  | `server`: _Address_                                  | Add a new server to the list of all servers                       |
 
 
 ## Procedures
@@ -92,7 +91,7 @@ Sent from the server to the client:
 
 #### Description
 
-1. New server sends `REPLICATION.JOIN` to known server
+1. New server sends `REPLICATION.CONNECT` to known server
 2. Known server informs new server about all active servers and clients using `REPLICATION.INITIALIZE`
 3. New server introduces itself to all active servers using `REPLICATION.ADD_SERVER`
 4. New server introduces itself to all clients using `CLIENT.ADD_SERVER`

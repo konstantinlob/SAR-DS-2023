@@ -1,6 +1,6 @@
-from common.types import Address
 from common.communication.sendreceive import SendReceive
 from common.message import Message
+from common.types import Address
 
 
 class RBroadcast:

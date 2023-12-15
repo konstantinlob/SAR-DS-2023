@@ -1,10 +1,11 @@
 import logging
-import select
 import socket
 
-from common.types import Address
-from common.packer import pack, unpack
+import select
+
 from common.message import Message
+from common.packer import pack, unpack
+from common.types import Address
 
 
 class SendReceive:
@@ -29,7 +30,6 @@ class SendReceive:
 
     def run(self):
         self.handle_sockets()
-
 
     def send(self, to: Address, message: Message):
         """

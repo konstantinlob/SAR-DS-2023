@@ -14,28 +14,29 @@ The following document describes a distributed file server system with _n_ serve
 - AckManager: expects acknowledgement within specified time
 - RBroadcast: reliable broadcast
   - also used for 1:1 messages for simplicity
+- SendReceive: handle 1:1 message transmission
 
 ## Message structure
 
-| Field      | Description                                                              |
-|------------|--------------------------------------------------------------------------|
-| `topic`    | General topic                                                            |
-| `command`  | Action within a topic                                                    |
-| `params`   | Data for the execution of the action                                     |
-| `meta_...` | Additional information inserted by middleware (one field per middleware) |
-| `...`      | ...                                                                      |
+| Field     | Description                                                                             |
+|-----------|-----------------------------------------------------------------------------------------|
+| `topic`   | General topic                                                                           |
+| `command` | Action within a topic                                                                   |
+| `params`  | Data for the execution of the action                                                    |
+| `meta`    | Additional information inserted by middleware (dict containing one dict per middleware) |
 
 ### Topic `FILE`:
 
 Sent from the client to the server:
 
-| Command    | Params | Description |
-|------------|:-------|-------------|
-| `CREATED`  |        |             |
-| `DELETED`  |        |             |
-| `MODIFIED` |        |             |
-| `MOVED`    |        |             |
-| `WATCHED`  |        |             |
+| Command    | Params           | Description                |
+|------------|:-----------------|----------------------------|
+| `CREATED`  |                  |                            |
+| `DELETED`  |                  |                            |
+| `MODIFIED` |                  |                            |
+| `MOVED`    |                  |                            |
+| `WATCHED`  |                  |                            |
+| `EXAMPLE`  | `example`: _str_ | For demonstration purposes |
 
 ### Topic `CLIENT`:
 
@@ -48,20 +49,20 @@ Sent from the client to the server:
 
 Sent from the server to the client:
 
-| Command       | Params                              | Description                                 |
-|---------------|:------------------------------------|---------------------------------------------|
-| `ACK`         |                                     | Acknowledge message                         |
-| `SET_SERVERS` | `servers`: _dict[str, Address]_     | Set the list of all servers                 |
-| `ADD_SERVER`  | `name`: _str_, `address`: _Address_ | Add a new server to the list of all servers |
+| Command        | Params                     | Description                                 |
+|----------------|:---------------------------|---------------------------------------------|
+| `AUTH_SUCCESS` | `success`: _bool_          | Confirm that the client is authenticated    |
+| `SET_SERVERS`  | `servers`: _list[Address]_ | Set the list of all servers                 |
+| `ADD_SERVER`   | `address`: _Address_       | Add a new server to the list of all servers |
 
 ### Topic `REPLICATION`:
 
-| Command       | Params                                                                  | Description                                                       |
-|---------------|:------------------------------------------------------------------------|-------------------------------------------------------------------|
-| `JOIN`        |                                                                         | Contact one of the existing servers and register as a new replica |
-| `INITIALIZE`  | `name`: _str_, `servers`: _dict[str, Address]_, clients: _set[Address]_ | Set/Update the list of all servers                                |
-| `ADD_SERVER`  | `name`: _str_, `address`: _Address_                                     | Add a new server to the list of all servers                       |
-| `SET_CLIENTS` | ???                                                                     | Inform a newly connected server about all active clients          |
+| Command       | Params                                               | Description                                                       |
+|---------------|:-----------------------------------------------------|-------------------------------------------------------------------|
+| `JOIN`        |                                                      | Contact one of the existing servers and register as a new replica |
+| `INITIALIZE`  | `servers`: _list[Address]_, clients: _list[Address]_ | Set/Update the list of all servers                                |
+| `ADD_SERVER`  | `address`: _Address_                                 | Add a new server to the list of all servers                       |
+| `SET_CLIENTS` | ???                                                  | Inform a newly connected server about all active clients          |
 
 
 ## Procedures
@@ -77,6 +78,7 @@ Sent from the server to the client:
 1. Client sends `CLIENT.KNOCK` to known server
 2. Server informs client about all other servers using `CLIENT.SET_SERVERS`
 3. Client connects to all active servers by broadcasting `CLIENT.AUTH`
+4. Servers confirm login with `CLIENT.AUTH_SUCCESS`
 
 #### Notes
 
@@ -91,6 +93,6 @@ Sent from the server to the client:
 #### Description
 
 1. New server sends `REPLICATION.JOIN` to known server
-2. Known server informs new server about all active servers and clients and assigns a name to the new server using `REPLICATION.INITIALIZE`
+2. Known server informs new server about all active servers and clients using `REPLICATION.INITIALIZE`
 3. New server introduces itself to all active servers using `REPLICATION.ADD_SERVER`
 4. New server introduces itself to all clients using `CLIENT.ADD_SERVER`

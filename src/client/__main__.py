@@ -1,8 +1,13 @@
 import os
-import sys; sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))  # noqa
+import sys
+import threading
+import time
+from datetime import datetime
+from queue import Queue
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))  # noqa
 import socket
 import getpass
-import datetime
 import argparse
 import typing as t
 from pathlib import Path
@@ -69,7 +74,7 @@ class FileSystemEventHandler(watchdog.events.FileSystemEventHandler):
 
     def on_any_event(self, event):
         if DEBUG:
-            print(f"Watchdog: {datetime.datetime.now().isoformat()} : {event!r}")
+            print(f"Watchdog: {datetime.now().isoformat()} : {event!r}")
 
     def on_created(self, event: t.Union[evt.DirCreatedEvent, evt.FileCreatedEvent]):
         self.send(
@@ -101,17 +106,11 @@ class FileSystemEventHandler(watchdog.events.FileSystemEventHandler):
 
     def on_modified(self, event: t.Union[evt.DirModifiedEvent, evt.FileModifiedEvent]):
         fp = Path(event.src_path)
-        #stat = os.stat(event.src_path)
-        #permissions = stat.st_mode & 0o777
         self.send(
             command="MODIFIED",
             body=dict(
                 src_path=self.get_relative(event.src_path),
                 is_directory=event.is_directory,
-                # permissions=permissions,
-                # atime=stat.st_atime,
-                # mtime=stat.st_mtime,
-                # ctime=stat.st_ctime,
                 new_content=None if event.is_directory or not fp.is_file() else fp.read_bytes(),
             )
         )
@@ -131,6 +130,9 @@ class Client(watchdog.events.FileSystemEventHandler):
         self.connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.rfile = self.connection.makefile('rb', -1)
         self.wfile = self.connection.makefile('wb', 0)
+        self.message_queue = Queue()
+        self.message_counter = 0
+        self.ignored_ids=[]
 
         self.watcher = watchdog.observers.Observer()
         self.watcher.start()  # todo: move to better place
@@ -141,13 +143,42 @@ class Client(watchdog.events.FileSystemEventHandler):
         self.wfile.close()
         self.watcher.stop()
 
+    def add_message_to_queue(self, command: str, body):
+        self.message_queue.put((command, body))
+
+    def wait_for_acknowledgment(self):
+        while self.waiting_for_ack:
+            self.process_server_responses()
+            time.sleep(0.1)
+
+    def process_server_responses(self):
+        # Check for server responses and handle the ACK message
+        command, body = self.get_response()
+        if command == "ACK": #and body['id'] == self.message_counter:
+            print(f"Received ACK") #from correct ID: {self.message_counter}")
+            self.waiting_for_ack = False
+            #self.ignored_ids += self.message_counter
+        else:
+            print(f"Received unexpected response: {command}, {body}")
+
+
+    def process_message_queue(self):
+        while self.message_queue.not_empty:
+            command, body = self.message_queue.get()
+            self.waiting_for_ack = True
+            self.send(command, body, id=self.message_counter)
+            print(f"sent {command}")
+            self.wait_for_acknowledgment()
+            time.sleep(0.1)
+
+
     def add_to_watcher(self, path: str):
         if path in self.directories:
             raise KeyError("Directory is already watched")
         print(f"Add directory to watcher: {path!r}")
         watch = self.watcher.schedule(FileSystemEventHandler(self.send, path), path, recursive=True)
         self.directories[path] = watch
-        self.send(
+        self.add_message_to_queue(
             command="WATCHED",
             body=dict(
                 src_path=path,
@@ -163,9 +194,11 @@ class Client(watchdog.events.FileSystemEventHandler):
     def run(self):
         self.connect()
         self.authenticate()
+        threading.Thread(target=self.process_message_queue).start()
 
-        for watch_dir in args.get("watch"):
-            self.add_to_watcher(watch_dir)
+        if args.get("watch"):
+            for watch_dir in args.get("watch"):
+                self.add_to_watcher(watch_dir)
 
         return self.main() or 0
 
@@ -174,10 +207,12 @@ class Client(watchdog.events.FileSystemEventHandler):
         port = args.get('server_port') if args.get('server_port') else SERVER_PORT
         self.connection.connect((host, port))
 
-    def send(self, command: str, body):
+    def send(self, command: str, body, id: int):
+        self.message_counter+=1
         self.wfile.write(pack(dict(
             command=command,
             body=body,
+            id=id
         )))
 
     def get_response(self) -> t.Tuple[str, dict]:
@@ -193,7 +228,8 @@ class Client(watchdog.events.FileSystemEventHandler):
             body=dict(
                 username=self.username,
                 password=self.password,
-            )
+            ),
+            id=0
         )
         command, body = self.get_response()
         if command != "AUTH":

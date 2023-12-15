@@ -1,5 +1,5 @@
 import os
-import sys;
+import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))  # noqa
 import socket
@@ -15,8 +15,7 @@ FILES_ROOT = Path(WATCHED_DIRECTORIES_PATH).absolute()
 FILES_ROOT.mkdir(parents=True, exist_ok=True)
 SPACE_MARGIN = 50 * 1 << 20  # 50 MiB
 USERS = ("anonymous", "sar", "sza", "konstantin")
-PASSWORDS = ("", "sar", "sza", "")
-
+PASSWORDS = ("", "sar", "sza", " ")
 
 # TCP/UDP range ports open: 50000 - 50200
 
@@ -29,11 +28,16 @@ def real_path(path: str) -> Path:
 
 
 class ConnectionHandler(socketserver.StreamRequestHandler):
+
+    def __init__(self):
+        self.message_id=0
     def get_response(self):
         response = unpack(self.rfile)
         command = response['command']
         body = response['body']
-        return command, body
+        id = response['id']
+        return command, body, id
+
 
     def send(self, command: str, body):
         """
@@ -41,12 +45,18 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
 
         :param command:
         :param body:
-        :return:
         """
         self.wfile.write(pack(dict(
             command=command,
             body=body,
         )))
+
+
+    def send_ack(self):
+        self.send(command="ACK", body=dict())#id=self.message_id))
+        print(f"sent ACK!")
+        print("-"*25)
+
 
     def handle_error(self, error: Exception):
         print(f"Handle Error: {type(error).__name__}: {error}")
@@ -58,6 +68,7 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
                 detail=str(error),
             )
         )
+
 
     def handle(self) -> None:
         try:
@@ -72,8 +83,9 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
         finally:
             self.request.close()  # Close the client connection
 
+
     def do_handshake(self):
-        command, body = self.get_response()
+        command, body, id = self.get_response()
         if command != "AUTH":
             raise ValueError("Authentication first required")
         username = body['username']
@@ -93,20 +105,26 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
             )
         )
 
+
     def handle_requests(self):
         while True:
-            command, body = self.get_response()
+            command, body, id = self.get_response()
             print(f"Received command: {command!r}")
             print(f"Received body: {body!r}")
+            # print(f"Received id: {id!r}")
             handler = getattr(self, f'handle_{command.lower()}', None)
             if handler is None:
                 raise LookupError("unknown command")
             else:
                 handler(**body)
+            #body['id']=self.message_id
+            self.send_ack()
+
 
     def handle_watched(self, src_path: str):
         src_path = real_path(src_path)
         src_path.mkdir(parents=True, exist_ok=True)
+
 
     def handle_created(self, src_path: str, is_directory: bool):
         src_path = real_path(src_path)
@@ -114,6 +132,7 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
             src_path.mkdir()
         else:
             src_path.touch()
+
 
     def handle_modified(self, src_path: str, is_directory: bool,
                         new_content: bytes):  # permissions, atime, mtime, ctime,
@@ -124,10 +143,12 @@ class ConnectionHandler(socketserver.StreamRequestHandler):
         # src_path.chmod(permissions)
         # os.utime(src_path, (atime, mtime))
 
+
     def handle_moved(self, src_path: str, dest_path: str, is_directory: bool):
         src_path = real_path(src_path)
         dist_path = real_path(dest_path)
         src_path.rename(dist_path)
+
 
     def handle_deleted(self, src_path: str, is_directory: bool):
         src_path = real_path(src_path)

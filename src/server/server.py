@@ -69,14 +69,14 @@ class Server:
     def handle_message_client_knock(self, message: Message):
         client = message.get_origin()
         logging.info(f"Client {client} knocked")
-        message = Message(
+        reply = Message(
             topic=Topic.CLIENT,
             command=Command.SET_SERVERS,
             params=dict(
                 servers=self.servers
             )
         )
-        self.comm.r_broadcast({client}, message)
+        self.comm.acknowledge_with_message(reply, message)
 
     def handle_message_client_auth(self, message: Message):
         client = message.get_origin()

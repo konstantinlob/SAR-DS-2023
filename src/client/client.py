@@ -22,11 +22,11 @@ class Client:
     _state: ClientState
 
     # the file watcher can create file update messages at any time, but they will only be sent out when the client is ready for it
-    file_message_queue: list[Message]
+    outgoing_message_queue: list[Message]
 
     def __init__(self):
         self.state = ClientState.STARTED
-        self.file_message_queue = []
+        self.outgoing_message_queue = []
         self.comm = AckManager(self.route, ("localhost", 51000))  # TODO don't hardcode address
 
     @property
@@ -42,10 +42,10 @@ class Client:
         self.comm.run()
 
         # send messages that are in the queue
-        if self.state == ClientState.RUNNING:
+        if not self.comm.is_awaiting_ack():
             try:
-                msg = self.file_message_queue.pop(0)
-                self._send(msg)
+                msg = self.outgoing_message_queue.pop(0)
+                self.comm.r_broadcast(self.servers, msg, expect_ack=True)
             except IndexError:
                 pass
 
@@ -61,8 +61,8 @@ class Client:
                         return self.handle_message_client_add_server(message)
         raise NotImplementedError
 
-    def _send(self, message: Message, expect_ack=True):
-        self.comm.r_broadcast(self.servers, message, expect_ack=expect_ack)
+    def send(self, message: Message):
+        self.outgoing_message_queue.append(message)
 
     def connect(self, server: Address) -> None:
         if self.state != ClientState.STARTED:
@@ -77,7 +77,7 @@ class Client:
         )
 
         self.state = ClientState.CONNECTING
-        self._send(message, expect_ack=False)
+        self.send(message)
 
     def auth(self) -> None:
         if self.state == ClientState.AUTHENTICATING:
@@ -93,7 +93,7 @@ class Client:
                 password="password"
             )
         )
-        self._send(message)
+        self.send(message)
 
     def handle_message_client_set_servers(self, message: Message):
 

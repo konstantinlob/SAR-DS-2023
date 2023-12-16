@@ -19,7 +19,7 @@ class AckManager:
         self.r_broadcaster = RBroadcast(self.deliver, self.address)
 
         # time in seconds after which a message must be acknowledged
-        self.ack_timeout = 10
+        self.ack_timeout = 3
 
         self.message_id = 0
         # dict storing the IDs of requests awaiting acknowledgement and the time they expire
@@ -33,40 +33,33 @@ class AckManager:
 
         for message_id, timeout_at in self.awaiting_ack.items():
             if timeout_at < time():
-                raise RuntimeError("Ack timed out")
                 self.awaiting_ack.pop(message_id)
+                raise RuntimeError("Ack timed out")
 
         self.r_broadcaster.run()
 
     def is_awaiting_ack(self) -> bool:
         return len(self.awaiting_ack) > 0
 
-    def r_broadcast_with_ack(self, to: set[Address], message: Message):
-        """
-        Broadcast a message and expect an acknowledgement
-
-        :param to:
-        :param message:
-        :return:
-        """
-        ack_meta = dict(
-            message_id=self.message_id
-        )
-        message.add_meta("ack_manager", ack_meta)
-
-        self.awaiting_ack[self.message_id] = time() + self.ack_timeout
-
-        self.message_id += 1
-        self.r_broadcaster.r_broadcast(to, message)
-
-    def r_broadcast(self, to: set[Address], message: Message):
+    def r_broadcast(self, to: set[Address], message: Message, expect_ack: bool = False):
         """
         Broadcast a message without expecting an acknowledgement
 
+        :param expect_ack:
         :param to:
         :param message:
         :return:
         """
+        if expect_ack:
+            ack_meta = dict(
+                message_id=self.message_id
+            )
+            message.add_meta("ack_manager", ack_meta)
+
+            self.awaiting_ack[self.message_id] = time() + self.ack_timeout
+
+            self.message_id += 1
+
         self.r_broadcaster.r_broadcast(to, message)
 
     def acknowledge_with_message(self, reply_message: Message, request_message: Message):

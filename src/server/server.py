@@ -25,7 +25,7 @@ class Server:
 
     def __init__(self, address: Address):
         self.servers: list[Address] = [address]
-        # collection of connected clients and ther authentication status
+        # collection of connected clients and their authentication status
         self.clients: dict[Address, bool] = {}
 
         self.comm = AckManager(self.route, address)
@@ -120,7 +120,9 @@ class Server:
             command=Command.INITIALIZE,
             params=dict(
                 servers=self.servers,
-                clients={}  # TODO send dict/list of clients
+                # packer has trouble unpacking the dict
+                # so here the items are arranged in a list and re-ordered by the receiving end
+                clients=[(addr, auth_status) for addr, auth_status in self.clients.items()]
             )
         )
         logging.info("Initializing new server")
@@ -177,6 +179,8 @@ class BackupServer(Server):
         message.topic = Topic.REPLICATION
         self.comm.r_broadcast(self.servers, message)
 
+        self.state = ServerState.RUNNING
+
     def route(self, message: Message):
         match message.topic:
             case Topic.REPLICATION:
@@ -190,8 +194,10 @@ class BackupServer(Server):
             raise RuntimeError()
 
         self.servers = [tuple(server) for server in message.params['servers']]
-        for addr, auth_status in message.params['clients'].items():
-            self.clients[addr] = auth_status
+        self.clients = {tuple(addr): auth_status for addr, auth_status in message.params['clients']}
+
+        logging.info(
+            f"Initialized with the following connections:\n\tServers: {self.servers}\n\tClients: {self.clients}")
 
         self.state = ServerState.JOINING
         self.introduce()

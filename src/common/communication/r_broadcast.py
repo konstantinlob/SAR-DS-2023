@@ -1,3 +1,5 @@
+import logging
+
 from common.communication.sendreceive import SendReceive
 from common.message import Message
 from common.types import Address
@@ -40,7 +42,10 @@ class RBroadcast:
 
     def broadcast(self, to: set[Address], message: Message):
         for recipient in to:
-            self.sender.send(recipient, message)
+            try:
+                self.sender.send(recipient, message)
+            except ConnectionRefusedError:
+                logging.warning(f"Broadcast partially failed: Connection refused by {recipient}")
 
     def r_deliver(self, message: Message):
         rb_meta = message.meta["r_broadcast"]
@@ -62,8 +67,6 @@ class RBroadcast:
         if sender not in self.msgs_received_from_sender.keys(): self.msgs_received_from_sender[sender] = []
         self.msgs_received_from_sender[sender].append(message_id)
 
-        # update the sender and forward to others
-        message.meta["r_broadcast"]["sender"] = self.address
         others = to.copy().remove(self.address)
         if others:
             self.broadcast(others, message)

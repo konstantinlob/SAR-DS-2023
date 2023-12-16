@@ -45,7 +45,7 @@ class Client:
         if self.state == ClientState.RUNNING:
             try:
                 msg = self.file_message_queue.pop(0)
-                self.comm.r_broadcast_with_ack(self.servers, msg)
+                self._send(msg)
             except IndexError:
                 pass
 
@@ -57,11 +57,18 @@ class Client:
                         return self.handle_message_client_auth_success(message)
                     case Command.SET_SERVERS:
                         return self.handle_message_client_set_servers(message)
+                    case Command.ADD_SERVER:
+                        return self.handle_message_client_add_server(message)
         raise NotImplementedError
+
+    def _send(self, message: Message, expect_ack=True):
+        self.comm.r_broadcast(self.servers, message, expect_ack=expect_ack)
 
     def connect(self, server: Address) -> None:
         if self.state != ClientState.STARTED:
             raise RuntimeError()
+
+        self.servers = [server]
 
         # request connection to the server group
         message = Message(
@@ -70,7 +77,7 @@ class Client:
         )
 
         self.state = ClientState.CONNECTING
-        self.comm.r_broadcast({server}, message)
+        self._send(message, expect_ack=False)
 
     def auth(self) -> None:
         if self.state == ClientState.AUTHENTICATING:
@@ -86,7 +93,7 @@ class Client:
                 password="password"
             )
         )
-        self.comm.r_broadcast_with_ack(self.servers, message)
+        self._send(message)
 
     def handle_message_client_set_servers(self, message: Message):
 
@@ -107,3 +114,8 @@ class Client:
             logging.info("Login successful")
         else:
             raise RuntimeError("Invalid credentials")
+
+    def handle_message_client_add_server(self, message: Message):
+        new_server = tuple(message.params["server"])
+        logging.info(f"New server: {new_server}")
+        self.servers.append(new_server)

@@ -64,7 +64,7 @@ class Server:
                         return self.handle_message_replication_connect(message)
                     case Command.ADD_SERVER:
                         return self.handle_message_replication_add_server(message)
-        raise NotImplementedError(f"Command {message.topic.value}.{message.command.value} is not implemented")
+        raise NotImplementedError(f"Command {message.topic.name}.{message.command.name} is not implemented")
 
     def handle_message_client_knock(self, message: Message):
         client = message.get_origin()

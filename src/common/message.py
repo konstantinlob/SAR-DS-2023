@@ -11,6 +11,10 @@ class Topic(Enum):
 
 class Command(Enum):
     # FILE commands
+    CREATED = "create"
+    DELETED = "delete"
+    MODIFIED = "modify"
+    MOVED = "move"
     EXAMPLE = "example"
 
     # CLIENT commands

@@ -1,7 +1,7 @@
 import argparse
 import logging
 
-from client import Client
+from client import FileServiceClient as Client
 
 argument_parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 argument_parser.add_argument('--host', type=str, help="Host of the server")
@@ -24,6 +24,9 @@ def main():
     client = Client()
 
     client.connect((host, port))
+    client.auth(user, passwd)
+
+    client.add_watched_folder("client_files")  # TODO remove hardcoded path
 
     from time import sleep
     while True:

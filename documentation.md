@@ -4,7 +4,8 @@ The following document describes a distributed file server system with _n_ serve
 
 ## Communication
 
-1. A middleware in the client attaches a unique ID before sending a request and adds this ID to a queue of pending requests, 
+1. A middleware in the client attaches a unique ID before sending a request and adds this ID to a queue of pending
+   requests,
    together with a timestamp after which the request will time out.
 2. If the client receives `ACK`, the ID is removed from this list.
 3. If no `ACK` is received within the timeout, an error is raised.
@@ -13,7 +14,7 @@ The following document describes a distributed file server system with _n_ serve
 
 - AckManager: expects acknowledgement within specified time
 - RBroadcast: reliable broadcast
-  - also used for 1:1 messages for simplicity
+    - also used for 1:1 messages for simplicity
 - SendReceive: handle 1:1 message transmission
 
 ## Message structure
@@ -29,14 +30,14 @@ The following document describes a distributed file server system with _n_ serve
 
 Sent from the client to the server:
 
-| Command    | Params           | Description                |
-|------------|:-----------------|----------------------------|
-| `CREATED`  |                  |                            |
-| `DELETED`  |                  |                            |
-| `MODIFIED` |                  |                            |
-| `MOVED`    |                  |                            |
-| `WATCHED`  |                  |                            |
-| `EXAMPLE`  | `example`: _str_ | For demonstration purposes |
+| Command    | Params                                                         | Description                |
+|------------|:---------------------------------------------------------------|----------------------------|
+| `CREATED`  | `is_directory`´: _bool_, `src_path`: _str_                     |                            |
+| `DELETED`  | `is_directory`´: _bool_, `src_path`: _str_                     |                            |
+| `MODIFIED` | `is_directory`´: _bool_, `src_path`: _str_                     |                            |
+| `MOVED`    | `is_directory`´: _bool_, `src_path`: _str_, `dest_path`: _str_ |                            |
+| `WATCHED`  |                                                                |
+| `EXAMPLE`  | `example`: _str_                                               | For demonstration purposes |
 
 ### Topic `CLIENT`:
 
@@ -57,12 +58,11 @@ Sent from the server to the client:
 
 ### Topic `REPLICATION`:
 
-| Command       | Params                                               | Description                                                       |
-|---------------|:-----------------------------------------------------|-------------------------------------------------------------------|
-| `CONNECT`     |                                                      | Contact one of the existing servers and register as a new replica |
-| `INITIALIZE`  | `servers`: _list[Address]_, clients: _list[Address]_ | Set/Update the list of all servers                                |
-| `ADD_SERVER`  | `server`: _Address_                                  | Add a new server to the list of all servers                       |
-
+| Command      | Params                                               | Description                                                       |
+|--------------|:-----------------------------------------------------|-------------------------------------------------------------------|
+| `CONNECT`    |                                                      | Contact one of the existing servers and register as a new replica |
+| `INITIALIZE` | `servers`: _list[Address]_, clients: _list[Address]_ | Set/Update the list of all servers                                |
+| `ADD_SERVER` | `server`: _Address_                                  | Add a new server to the list of all servers                       |
 
 ## Procedures
 

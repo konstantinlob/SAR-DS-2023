@@ -4,7 +4,7 @@ from pathlib import Path
 from common.communication.ack_manager import AckManager
 from common.message import Message, Topic, Command
 from common.types import Address
-from states import ClientState
+from client.states import ClientState
 
 
 class BaseClient:

@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 
 from client import FileServiceClient as Client
+from common.paths import parse_path
 
 argument_parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 argument_parser.add_argument('--server', type=str, help="Server address (host:port)", required=True)
@@ -10,7 +11,7 @@ argument_parser.add_argument('--server', type=str, help="Server address (host:po
 argument_parser.add_argument('--user', type=str, help="Automatically authenticate using this user")
 argument_parser.add_argument('--passwd', type=str, help="Automatically authenticate using this password")
 
-argument_parser.add_argument('--watch', type=str, help="Watch folders", nargs='*')
+argument_parser.add_argument('--watch', type=str, help="Watch folders", nargs='*', default=[])
 
 args = vars(argument_parser.parse_args())
 
@@ -29,7 +30,7 @@ def main():
     client.auth(user, passwd)
 
     for watch_dir in args.get("watch"):
-        client.add_watched_folder(Path(watch_dir))
+        client.add_watched_folder(parse_path(watch_dir))
 
     from time import sleep
     while True:

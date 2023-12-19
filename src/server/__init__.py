@@ -4,7 +4,7 @@ from common.communication.ack_manager import AckManager
 from common.message import Message, Topic, Command
 from common.types import Address
 from common.users import check_auth, AccessType
-from states import ServerState
+from server.states import ServerState
 
 
 class BaseServer:
@@ -129,9 +129,9 @@ from pathlib import Path
 
 
 class FileServiceServer(ActiveReplServer):
-    def __init__(self, address: Address):
+    def __init__(self, address: Address, storage_dir: Path):
         super().__init__(address)
-        self.files = Path("server_files").absolute()  # TODO
+        self.files = storage_dir
 
     def route(self, message: Message):
         match message.topic:
@@ -163,7 +163,7 @@ class FileServiceServer(ActiveReplServer):
         client = tuple(message.meta["sendreceive"]["origin"])
         if client not in self.clients.keys():
             raise PermissionError("Unknown client")
-        if self.clients[client] < min_required_auth:
+        if self.clients[client].value < min_required_auth.value:
             raise PermissionError("Client lacks permission to execute this action")
 
     def handle_message_file_example(self, message: Message):
@@ -243,8 +243,8 @@ class FileServiceServer(ActiveReplServer):
 
 
 class FileServiceBackupServer(FileServiceServer):
-    def __init__(self, own_address: Address):
-        super().__init__(own_address)
+    def __init__(self, own_address: Address, storage_dir: Path):
+        super().__init__(own_address, storage_dir)
 
         self.state = ServerState.STARTED
         self.comm.deliver_callback = self.route

@@ -1,5 +1,6 @@
 import argparse
 import logging
+from pathlib import Path
 
 from client import FileServiceClient as Client
 
@@ -26,7 +27,8 @@ def main():
     client.connect((host, port))
     client.auth(user, passwd)
 
-    client.add_watched_folder("client_files")  # TODO remove hardcoded path
+    client.add_watched_folder(Path("client_files"))  # TODO remove hardcoded path
+    client.add_watched_folder(Path("/home/samuel/Downloads/test/files"))
 
     from time import sleep
     while True:

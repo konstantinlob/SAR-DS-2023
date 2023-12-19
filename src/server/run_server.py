@@ -1,7 +1,7 @@
 import argparse
 import logging
 
-from server import Server, BackupServer
+from server import FileServiceServer as Server, FileServiceBackupServer as BackupServer
 
 # TODO actually pass to server
 parser = argparse.ArgumentParser(description='Run an instance of the file server')

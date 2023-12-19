@@ -11,6 +11,7 @@ class Topic(Enum):
 
 class Command(Enum):
     # FILE commands
+    WATCHED = "watch"
     CREATED = "create"
     DELETED = "delete"
     MODIFIED = "modify"

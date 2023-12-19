@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 from common.communication.ack_manager import AckManager
 from common.message import Message, Topic, Command
@@ -131,31 +132,24 @@ class ActiveReplClient(BaseClient):
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, EVENT_TYPE_CREATED, EVENT_TYPE_DELETED, \
-    EVENT_TYPE_MODIFIED, EVENT_TYPE_MOVED, EVENT_TYPE_OPENED
+    EVENT_TYPE_MODIFIED, EVENT_TYPE_MOVED, EVENT_TYPE_OPENED, EVENT_TYPE_CLOSED
 
+from os import path
 
-class FileServiceClient(ActiveReplClient, FileSystemEventHandler):
-    observers: set[Observer]
+class FolderEventHandler(FileSystemEventHandler):
+    # absolute path to the watched folder on the local disk
+    folder: Path
 
-    def __init__(self):
+    def __init__(self, folder: Path, sender):
         super().__init__()
-        self.observers = set()
+        self.folder = folder
+        self.send_file_message = sender
 
-    def add_watched_folder(self, path: str):
-        observer = Observer()
-        self.observers.add(observer)
-        observer.schedule(self, path, recursive=True)
-        observer.start()
-
-        logging.info(f"Watcher started for '{path}'")
-
-    def send_file_message(self, command: Command, params: dict):
-        message = Message(
-            topic=Topic.FILE,
-            command=command,
-            params=params
+    def _get_relative(self, file_path: Path) -> str:
+        return path.join(
+            self.folder.name,
+            path.relpath(file_path, self.folder)
         )
-        self.send(message)
 
     def on_any_event(self, event):
         """Handle all relevant file system events by sending message to the server
@@ -166,8 +160,8 @@ class FileServiceClient(ActiveReplClient, FileSystemEventHandler):
             :class:`FileSystemEvent`
         """
 
-        if event.event_type in [EVENT_TYPE_OPENED]:
-            return
+        # Ignore events that don't change the file
+        if event.event_type in [EVENT_TYPE_OPENED, EVENT_TYPE_CLOSED]: return
 
         command_for_event = {
             EVENT_TYPE_CREATED: Command.CREATED,
@@ -181,14 +175,63 @@ class FileServiceClient(ActiveReplClient, FileSystemEventHandler):
         except KeyError:
             raise NotImplementedError(f"Unknown event type '{event.event_type}'")
 
+        src_path = self._get_relative(event.src_path)
+
         params = dict(
             is_directory=event.is_directory,
-            src_path=event.src_path
+            src_path=src_path
         )
 
+
+        # if the file was moved, inlcude the new path
         if event.event_type == EVENT_TYPE_MOVED:
-            params["dest_path"] = event.dest_path
+            params["dest_path"] = self._get_relative(event.dest_path)
+
 
         logging.info(f"Registered event '{event.event_type}' at path '{event.src_path}'")
 
+        # if the file was modified, include the new content
+        filepath = Path(event.src_path)
+        if event.event_type == EVENT_TYPE_MODIFIED and not event.is_directory:
+            try:
+                params["new_content"] = filepath.read_bytes()
+            except FileNotFoundError:
+                logging.warning(f"FileNotFoundError while attempting to read '{event.src_path}'. "
+                                f"Was the file deleted too quickly?")
+                return
+
+
         self.send_file_message(command, params)
+
+
+
+class FileServiceClient(ActiveReplClient):
+    observers: set[Observer]
+
+    def __init__(self):
+        super().__init__()
+        self.observers = set()
+
+    def add_watched_folder(self, folder: Path):
+        """
+        Watch a folder for changes
+        :param folder: absolute path to the folder
+        :return:
+        """
+
+        observer = Observer()
+        handler = FolderEventHandler(folder, self.send_file_message)
+        self.observers.add(observer)
+        observer.schedule(handler, folder, recursive=True)
+        observer.start()
+
+        logging.info(f"Watcher started for '{folder}'")
+        self.send_file_message(Command.WATCHED, dict(path=folder.name))
+
+    def send_file_message(self, command: Command, params: dict):
+        message = Message(
+            topic=Topic.FILE,
+            command=command,
+            params=params
+        )
+        self.send(message)

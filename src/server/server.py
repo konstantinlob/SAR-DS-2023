@@ -1,23 +1,12 @@
 import logging
-from enum import Enum
 
 from common.communication.ack_manager import AckManager
 from common.message import Message, Topic, Command
 from common.types import Address
+from states import ServerState
 
 
-class ServerState(Enum):
-    # server has just started
-    STARTED = 0,
-    # server has requested connection to the group
-    CONNECTING = 1
-    # server has received server and client details and is attempting to introduce itself to other nodes
-    JOINING = 2,
-    # server has joined server group and is registered with clients, running normally
-    RUNNING = 3
-
-
-class Server:
+class BaseServer:
     servers: list[tuple[str, int]]
     clients: dict[tuple[str, int], bool]
     state: ServerState
@@ -54,16 +43,6 @@ class Server:
                         return self.handle_message_client_knock(message)
                     case Command.AUTH:
                         return self.handle_message_client_auth(message)
-            case Topic.FILE:
-                match message.command:
-                    case Command.EXAMPLE:
-                        return self.handle_message_file_example(message)
-            case Topic.REPLICATION:
-                match message.command:
-                    case Command.CONNECT:
-                        return self.handle_message_replication_connect(message)
-                    case Command.ADD_SERVER:
-                        return self.handle_message_replication_add_server(message)
         raise NotImplementedError(f"Command {message.topic.name}.{message.command.name} is not implemented")
 
     def handle_message_client_knock(self, message: Message):
@@ -100,9 +79,18 @@ class Server:
 
         self.comm.acknowledge_with_message(reply, message)
 
-    def handle_message_file_example(self, message: Message):
-        print(f"Received greeting from client: {message.params['example']}")
-        self.comm.acknowledge(message)
+
+class ActiveReplServer(BaseServer):
+
+    def route(self, message: Message):
+        match message.topic:
+            case Topic.REPLICATION:
+                match message.command:
+                    case Command.CONNECT:
+                        return self.handle_message_replication_connect(message)
+                    case Command.ADD_SERVER:
+                        return self.handle_message_replication_add_server(message)
+        super().route(message)
 
     def handle_message_replication_connect(self, message: Message):
         """
@@ -134,7 +122,108 @@ class Server:
         self.servers.append(new_server)
 
 
-class BackupServer(Server):
+from os.path import commonpath
+from pathlib import Path
+
+
+class FileServiceServer(ActiveReplServer):
+    def __init__(self, address: Address):
+        super().__init__(address)
+        self.files = Path("server_files").absolute()  # TODO
+
+    def route(self, message: Message):
+        match message.topic:
+            case Topic.FILE:
+                match message.command:
+                    case Command.EXAMPLE:
+                        return self.handle_message_file_example(message)
+                    case Command.WATCHED:
+                        return self.handle_message_file_watched(message)
+                    case Command.CREATED:
+                        return self.handle_message_file_created(message)
+                    case Command.DELETED:
+                        return self.handle_message_file_deleted(message)
+                    case Command.MODIFIED:
+                        return self.handle_message_file_modified(message)
+                    case Command.MOVED:
+                        return self.handle_message_file_moved(message)
+        super().route(message)
+
+    def _local_path(self, path: str) -> Path:
+        """Maps the folder name transmitted by the client to a folder on the local disk
+        """
+        real = (self.files / path).absolute()
+        if commonpath([str(self.files), real]) != str(self.files):
+            raise PermissionError("Bad path")
+        return real
+
+    def handle_message_file_example(self, message: Message):
+        print(f"Received greeting from client: {message.params['example']}")
+        self.comm.acknowledge(message)
+
+    def handle_message_file_watched(self, message: Message):
+        src_path = self._local_path(message.params['path'])
+        src_path.mkdir(parents=True, exist_ok=True)
+
+        logging.info(f"Watching new path: {message.params["path"]}")
+
+        self.comm.acknowledge(message)
+
+    def handle_message_file_created(self, message: Message):
+        src_path = self._local_path(message.params['src_path'])
+        is_directory = message.params['is_directory']
+
+        if is_directory:
+            src_path.mkdir()
+        else:
+            src_path.touch()
+
+        logging.info(f"File created: {message.params["src_path"]}")
+
+        self.comm.acknowledge(message)
+
+    def handle_message_file_modified(self, message: Message):
+        src_path = self._local_path(message.params['src_path'])
+        is_directory = message.params['is_directory']
+
+        if is_directory:
+            logging.info(f"Directory modified: {message.params["src_path"]}")
+        else:
+            new_content = message.params['new_content']
+
+            if new_content is not None:
+                with open(src_path, 'wb') as file:
+                    file.write(new_content)
+
+            logging.info(f"File modified: {message.params["src_path"]} (length of new content: {len(new_content)})")
+
+
+
+        self.comm.acknowledge(message)
+
+    def handle_message_file_moved(self, message: Message):
+        src_path = self._local_path(message.params['src_path'])
+        dest_path = self._local_path(message.params['dest_path'])
+        src_path.rename(dest_path)
+
+        logging.info(f"File moved: {message.params["src_path"]} -> {message.params['dest_path']}")
+
+        self.comm.acknowledge(message)
+
+    def handle_message_file_deleted(self, message: Message):
+        src_path = self._local_path(message.params['src_path'])
+        is_directory = message.params['is_directory']
+        if is_directory:
+            src_path.rmdir()
+        else:
+            src_path.unlink()
+
+        logging.info(f"{'Directory' if is_directory else 'File'} deleted: {message.params["src_path"]}")
+
+        self.comm.acknowledge(message)
+
+
+class FileServiceBackupServer(FileServiceServer):
     def __init__(self, own_address: Address):
         super().__init__(own_address)
 
@@ -171,7 +260,8 @@ class BackupServer(Server):
 
         # introduce to clients
         for client in self.clients:
-            # this is actually a broadcast, but running this as a reliable broadcast would imply that the clients connect to each other
+            # this is actually a broadcast, but running this as a reliable broadcast would imply that the clients
+            # connect to each other.
             # we want to avoid this, so the message is sent individually to each client
             self.comm.r_broadcast({client}, message)
 

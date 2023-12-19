@@ -38,14 +38,24 @@ class RBroadcast:
 
         self.message_id += 1
 
-        self.broadcast(to, message)
+        if self.broadcast(to, message) == 0:
+            raise RuntimeError("Broadcast failed: No messages were delivered")
 
-    def broadcast(self, to: set[Address], message: Message):
+    def broadcast(self, to: set[Address], message: Message) -> int:
+        """
+        Broadcast a message to a group
+        :param to:
+        :param message:
+        :return: number of successfully sent messages
+        """
+        delivered = 0
         for recipient in to:
             try:
                 self.sender.send(recipient, message)
+                delivered += 1
             except ConnectionRefusedError:
                 logging.warning(f"Broadcast partially failed: Connection refused by {recipient}")
+        return delivered
 
     def r_deliver(self, message: Message):
         rb_meta = message.meta["r_broadcast"]

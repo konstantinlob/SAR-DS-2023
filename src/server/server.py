@@ -3,19 +3,20 @@ import logging
 from common.communication.ack_manager import AckManager
 from common.message import Message, Topic, Command
 from common.types import Address
+from common.users import check_auth, AccessType
 from states import ServerState
 
 
 class BaseServer:
     servers: list[tuple[str, int]]
-    clients: dict[tuple[str, int], bool]
+    clients: dict[tuple[str, int], AccessType]
     state: ServerState
     address: Address
 
     def __init__(self, address: Address):
         self.servers: list[Address] = [address]
         # collection of connected clients and their authentication status
-        self.clients: dict[Address, bool] = {}
+        self.clients = {}
 
         self.comm = AckManager(self.route, address)
 
@@ -63,17 +64,18 @@ class BaseServer:
         username = message.params["username"]
         password = message.params["password"]
 
-        logging.info(f"Client {client} is attempting to authenticate with credentials '{username}' / '{password}'")
+        access_type = check_auth(username, password)
 
-        success = True  # TODO actually check credentials
+        logging.info(f"Client {client} is attempting to authenticate with credentials '{username}' / '{password}' "
+                     f"--> {access_type}")
 
-        self.clients[client] = success
+        self.clients[client] = access_type
 
         reply = Message(
             topic=Topic.CLIENT,
             command=Command.AUTH_SUCCESS,
             params=dict(
-                success=success
+                success=bool(access_type)
             )
         )
 
@@ -110,7 +112,7 @@ class ActiveReplServer(BaseServer):
                 servers=self.servers,
                 # packer has trouble unpacking the dict
                 # so here the items are arranged in a list and re-ordered by the receiving end
-                clients=[(addr, auth_status) for addr, auth_status in self.clients.items()]
+                clients=[(addr, auth_status.value) for addr, auth_status in self.clients.items()]
             )
         )
         logging.info("Initializing new server")
@@ -157,11 +159,22 @@ class FileServiceServer(ActiveReplServer):
             raise PermissionError("Bad path")
         return real
 
+    def _assert_authorized(self, message: Message, min_required_auth: AccessType = AccessType.AUTHORIZED) -> bool:
+        client = tuple(message.meta["sendreceive"]["origin"])
+        if client not in self.clients.keys():
+            raise PermissionError("Unknown client")
+        if self.clients[client] < min_required_auth:
+            raise PermissionError("Client lacks permission to execute this action")
+
     def handle_message_file_example(self, message: Message):
+        self._assert_authorized(message, min_required_auth=AccessType.ANONYMOUS)
+
         print(f"Received greeting from client: {message.params['example']}")
         self.comm.acknowledge(message)
 
     def handle_message_file_watched(self, message: Message):
+        self._assert_authorized(message)
+
         src_path = self._local_path(message.params['path'])
         src_path.mkdir(parents=True, exist_ok=True)
 
@@ -170,6 +183,8 @@ class FileServiceServer(ActiveReplServer):
         self.comm.acknowledge(message)
 
     def handle_message_file_created(self, message: Message):
+        self._assert_authorized(message)
+
         src_path = self._local_path(message.params['src_path'])
         is_directory = message.params['is_directory']
 
@@ -183,6 +198,8 @@ class FileServiceServer(ActiveReplServer):
         self.comm.acknowledge(message)
 
     def handle_message_file_modified(self, message: Message):
+        self._assert_authorized(message)
+
         src_path = self._local_path(message.params['src_path'])
         is_directory = message.params['is_directory']
 
@@ -197,11 +214,11 @@ class FileServiceServer(ActiveReplServer):
 
             logging.info(f"File modified: {message.params["src_path"]} (length of new content: {len(new_content)})")
 
-
-
         self.comm.acknowledge(message)
 
     def handle_message_file_moved(self, message: Message):
+        self._assert_authorized(message)
+
         src_path = self._local_path(message.params['src_path'])
         dest_path = self._local_path(message.params['dest_path'])
         src_path.rename(dest_path)
@@ -211,6 +228,8 @@ class FileServiceServer(ActiveReplServer):
         self.comm.acknowledge(message)
 
     def handle_message_file_deleted(self, message: Message):
+        self._assert_authorized(message)
+
         src_path = self._local_path(message.params['src_path'])
         is_directory = message.params['is_directory']
         if is_directory:
@@ -284,7 +303,7 @@ class FileServiceBackupServer(FileServiceServer):
             raise RuntimeError()
 
         self.servers = [tuple(server) for server in message.params['servers']]
-        self.clients = {tuple(addr): auth_status for addr, auth_status in message.params['clients']}
+        self.clients = {tuple(addr): AccessType(access_type) for addr, access_type in message.params['clients']}
 
         logging.info(
             f"Initialized with the following connections:\n\tServers: {self.servers}\n\tClients: {self.clients}")

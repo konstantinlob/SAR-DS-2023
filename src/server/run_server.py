@@ -3,25 +3,23 @@ import logging
 
 from server import FileServiceServer as Server, FileServiceBackupServer as BackupServer
 
-# TODO actually pass to server
 parser = argparse.ArgumentParser(description='Run an instance of the file server')
-parser.add_argument("--host")
-parser.add_argument("--port")
-parser.add_argument("--leader-host")
-parser.add_argument("--leader-port")
+parser.add_argument("--address", help="Own address (host:port)", required=True)
+parser.add_argument("--join", help="Join an existing server group at the given address(host:port)")
 
 if __name__ == '__main__':
     args = vars(parser.parse_args())
     logging.basicConfig(level=logging.INFO)
 
-    host = args["host"]
-    port = int(args["port"])
+    host, port = args.get('address').split(':')
+    port = int(port)
+
     own_addr = (host, port)
 
-    if args.get("leader_host"):
+    if args.get("join"):
         # add new server to group
-        lead_host = args["leader_host"]
-        lead_port = int(args["leader_port"])
+        lead_host, lead_port = args.get('join').split(':')
+        lead_port = int(lead_port)
         leader = (lead_host, lead_port)
 
         logging.info(f"Starting backup server at {own_addr}")

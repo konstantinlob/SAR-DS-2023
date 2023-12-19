@@ -136,6 +136,7 @@ from watchdog.events import FileSystemEventHandler, EVENT_TYPE_CREATED, EVENT_TY
 
 from os import path
 
+
 class FolderEventHandler(FileSystemEventHandler):
     # absolute path to the watched folder on the local disk
     folder: Path
@@ -182,11 +183,9 @@ class FolderEventHandler(FileSystemEventHandler):
             src_path=src_path
         )
 
-
         # if the file was moved, inlcude the new path
         if event.event_type == EVENT_TYPE_MOVED:
             params["dest_path"] = self._get_relative(event.dest_path)
-
 
         logging.info(f"Registered event '{event.event_type}' at path '{event.src_path}'")
 
@@ -200,9 +199,7 @@ class FolderEventHandler(FileSystemEventHandler):
                                 f"Was the file deleted too quickly?")
                 return
 
-
         self.send_file_message(command, params)
-
 
 
 class FileServiceClient(ActiveReplClient):

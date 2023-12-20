@@ -198,9 +198,9 @@ class FolderEventHandler(FileSystemEventHandler):
 
         # if the file was modified, include the new content
         filepath = Path(event.src_path)
-        if event.event_type == EVENT_TYPE_MODIFIED and not event.is_directory:
+        if event.event_type in {EVENT_TYPE_CREATED, EVENT_TYPE_MODIFIED} and not event.is_directory:
             try:
-                params["new_content"] = filepath.read_bytes()
+                params["content"] = filepath.read_bytes()
             except FileNotFoundError:
                 logging.warning(f"FileNotFoundError while attempting to read '{event.src_path}'. "
                                 f"Was the file deleted too quickly?")

@@ -137,7 +137,7 @@ class FileServiceServer(ActiveReplServer):
                 raise RuntimeError("Storage directory is not a directory")
         else:
             storage_dir.mkdir(parents=True, exist_ok=True)
-            logging.info("Storage directory does not exist, creating new directory")
+            logging.warning("Storage directory does not exist, creating new directory")
 
         self.files = storage_dir
 
@@ -209,10 +209,16 @@ class FileServiceServer(ActiveReplServer):
 
         if is_directory:
             src_path.mkdir()
+            logging.info(f"Directory created: {message.params['src_path']}")
         else:
             src_path.touch()
 
-        logging.info(f"File created: {message.params['src_path']}")
+            content = message.params['content']
+            if content is not None:
+                with open(src_path, 'wb') as file:
+                    file.write(content)
+
+            logging.info(f"File created: {message.params['src_path']} (length: {len(content)})")
 
         self.comm.acknowledge(message)
 
@@ -225,13 +231,13 @@ class FileServiceServer(ActiveReplServer):
         if is_directory:
             logging.info(f"Directory modified: {message.params['src_path']}")
         else:
-            new_content = message.params['new_content']
+            content = message.params['content']
 
-            if new_content is not None:
+            if content is not None:
                 with open(src_path, 'wb') as file:
-                    file.write(new_content)
+                    file.write(content)
 
-            logging.info(f"File modified: {message.params['src_path']} (length of new content: {len(new_content)})")
+            logging.info(f"File modified: {message.params['src_path']} (length of new content: {len(content)})")
 
         self.comm.acknowledge(message)
 

@@ -44,14 +44,14 @@ Therefore, it is necessary to embed another identifier within the message that u
 
 Sent from the client to the server:
 
-| Command    | Params                                                           | Description                | Auth ? |
-|------------|:-----------------------------------------------------------------|----------------------------|--------|
-| `WATCHED`  | `path`: _str_                 `                                  | Synchronize another folder | yes    |
-| `CREATED`  | `is_directory`´: _bool_, `src_path`: _str_                       |                            | yes    |
-| `DELETED`  | `is_directory`´: _bool_, `src_path`: _str_                       |                            | yes    |
-| `MODIFIED` | `is_directory`´: _bool_, `src_path`: _str_, `new_content`: _???_ |                            | yes    |
-| `MOVED`    | `src_path`: _str_, `dest_path`: _str_                            |                            | yes    |
-| `EXAMPLE`  | `example`: _str_                                                 | For demonstration purposes | anon   |
+| Command    | Params                                                       | Description                | Auth ? |
+|------------|:-------------------------------------------------------------|----------------------------|--------|
+| `WATCHED`  | `path`: _str_                 `                              | Synchronize another folder | yes    |
+| `CREATED`  | `is_directory`´: _bool_, `src_path`: _str_, `content`: ???   |                            | yes    |
+| `DELETED`  | `is_directory`´: _bool_, `src_path`: _str_                   |                            | yes    |
+| `MODIFIED` | `is_directory`´: _bool_, `src_path`: _str_, `content`: _???_ |                            | yes    |
+| `MOVED`    | `src_path`: _str_, `dest_path`: _str_                        |                            | yes    |
+| `EXAMPLE`  | `example`: _str_                                             | For demonstration purposes | anon   |
 
 ### Topic `CLIENT`:
 

@@ -19,7 +19,7 @@ class AckManager:
         self.r_broadcaster = RBroadcast(self.deliver, self.address)
 
         # time in seconds after which a message must be acknowledged
-        self.ack_timeout = 3
+        self.ack_timeout = 10
 
         self.message_id = 0
         # dict storing the IDs of requests awaiting acknowledgement and the time they expire

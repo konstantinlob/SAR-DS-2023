@@ -167,21 +167,30 @@ class FileServiceServer(ActiveReplServer):
             raise PermissionError("Bad path")
         return real
 
-    def _assert_authorized(self, message: Message, min_required_auth: AccessType = AccessType.AUTHORIZED) -> bool:
+    def _enforce_authorization(self, message: Message, min_required_auth: AccessType = AccessType.AUTHORIZED) -> bool:
         client = tuple(message.meta["sendreceive"]["origin"])
+
+        def send_error(error: str):
+            error_msg = Message(topic=Topic.CLIENT, command=Command.ERROR, params={"error": error})
+            self.comm.acknowledge_with_message(error_msg, message)
+
         if client not in self.clients.keys():
-            raise PermissionError("Unknown client")
-        if self.clients[client].value < min_required_auth.value:
-            raise PermissionError("Client lacks permission to execute this action")
+            send_error("Permission denied: Unknown client - Please authenticate first")
+            return False
+        elif self.clients[client].value < min_required_auth.value:
+            send_error("Permission denied: This operation is not allowed for this user")
+            return False
+        else:
+            return True
 
     def handle_message_file_example(self, message: Message):
-        self._assert_authorized(message, min_required_auth=AccessType.ANONYMOUS)
+        if not self._enforce_authorization(message, min_required_auth=AccessType.ANONYMOUS): return
 
         print(f"Received greeting from client: {message.params['example']}")
         self.comm.acknowledge(message)
 
     def handle_message_file_watched(self, message: Message):
-        self._assert_authorized(message)
+        if not self._enforce_authorization(message): return
 
         src_path = self._local_path(message.params['path'])
         src_path.mkdir(parents=True, exist_ok=True)
@@ -191,7 +200,7 @@ class FileServiceServer(ActiveReplServer):
         self.comm.acknowledge(message)
 
     def handle_message_file_created(self, message: Message):
-        self._assert_authorized(message)
+        if not self._enforce_authorization(message): return
 
         src_path = self._local_path(message.params['src_path'])
         is_directory = message.params['is_directory']
@@ -206,7 +215,7 @@ class FileServiceServer(ActiveReplServer):
         self.comm.acknowledge(message)
 
     def handle_message_file_modified(self, message: Message):
-        self._assert_authorized(message)
+        if not self._enforce_authorization(message): return
 
         src_path = self._local_path(message.params['src_path'])
         is_directory = message.params['is_directory']
@@ -225,7 +234,7 @@ class FileServiceServer(ActiveReplServer):
         self.comm.acknowledge(message)
 
     def handle_message_file_moved(self, message: Message):
-        self._assert_authorized(message)
+        if not self._enforce_authorization(message): return
 
         src_path = self._local_path(message.params['src_path'])
         dest_path = self._local_path(message.params['dest_path'])
@@ -236,7 +245,7 @@ class FileServiceServer(ActiveReplServer):
         self.comm.acknowledge(message)
 
     def handle_message_file_deleted(self, message: Message):
-        self._assert_authorized(message)
+        if not self._enforce_authorization(message): return
 
         src_path = self._local_path(message.params['src_path'])
         is_directory = message.params['is_directory']

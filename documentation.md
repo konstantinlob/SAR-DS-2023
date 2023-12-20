@@ -53,6 +53,7 @@ Sent from the server to the client:
 | Command        | Params                     | Description                                 |
 |----------------|:---------------------------|---------------------------------------------|
 | `AUTH_SUCCESS` | `success`: _bool_          | Confirm that the client is authenticated    |
+| `ERROR`        | `message`: _str_           |                                             |
 | `SET_SERVERS`  | `servers`: _list[Address]_ | Set the list of all servers                 |
 | `ADD_SERVER`   | `address`: _Address_       | Add a new server to the list of all servers |
 

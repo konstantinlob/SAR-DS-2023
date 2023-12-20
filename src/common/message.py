@@ -24,6 +24,7 @@ class Command(Enum):
     AUTH_SUCCESS = "auth_success"
 
     ACK = "ack"
+    ERROR = "error"
     SET_SERVERS = "set_servers"
     ADD_SERVER = "add_server"
 

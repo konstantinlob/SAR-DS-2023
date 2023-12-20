@@ -17,6 +17,20 @@ The following document describes a distributed file server system with _n_ serve
     - also used for 1:1 messages for simplicity
 - SendReceive: handle 1:1 message transmission
 
+#### RBroadcast
+
+Reliable broadcast requires the ability to distinguish every sent message from each other.
+
+A simple counter embedded into each `RBroadcast` object is an obvious solution, the recipient can then check if the
+counter in combination with the client address was seen before or not.
+
+However, this can lead to issues in the case where a sender is restarted: It will tag its first message with message ID
+1 again, which means that the message will be ignored by all nodes who have previously received a message from this
+address.
+
+Therefore, it is necessary to embed another identifier within the message that uniquely identifies the actual
+`RBroadcast` object. One possible source for this ID is the Unix timestamp at which the object was created.
+
 ## Message structure
 
 | Field     | Description                                                                             |

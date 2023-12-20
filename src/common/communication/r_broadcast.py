@@ -1,4 +1,5 @@
 import logging
+import time
 
 from common.communication.sendreceive import SendReceive
 from common.message import Message
@@ -12,16 +13,27 @@ class RBroadcast:
     """
 
     def __init__(self, deliver_callback, own_address: Address):
-        self.deliver_callback = deliver_callback
+        self._deliver_callback = deliver_callback
         self.address = own_address
 
         self.sender = SendReceive(self.r_deliver, self.address)
 
-        self.msgs_received_from_sender: dict[Address, list[int]] = {}
-        self.message_id = 0
+        self._msgs_received_from_sender: dict[Address, list[tuple[int, int]]] = {}
+
+        self._message_counter = 0
+
+        # see documentation
+        self._unique_identifier = int(time.time())
 
     def run(self):
         self.sender.run()
+
+    def _generate_message_id(self) -> tuple[int, int]:
+        message_id = (self._unique_identifier, self._message_counter)
+
+        self._message_counter += 1
+
+        return message_id
 
     def r_broadcast(self, to: set[Address], message: Message):
 
@@ -30,13 +42,11 @@ class RBroadcast:
 
         rb_meta = dict(
             sender=self.address,
-            message_id=self.message_id,
+            message_id=self._generate_message_id(),
             to=list(to)
         )
 
         message.add_meta("r_broadcast", rb_meta)
-
-        self.message_id += 1
 
         if self.broadcast(to, message) == 0:
             raise RuntimeError("Broadcast failed: No messages were delivered")
@@ -68,18 +78,18 @@ class RBroadcast:
             return
 
         # if the message was already received, there is also nothing to do
-        if sender in self.msgs_received_from_sender.keys() and message_id in self.msgs_received_from_sender[sender]:
+        if sender in self._msgs_received_from_sender.keys() and message_id in self._msgs_received_from_sender[sender]:
             return
 
         # if the message is unknown, mark it as received, forward it to others and deliver it:
 
         # mark as received
-        if sender not in self.msgs_received_from_sender.keys(): self.msgs_received_from_sender[sender] = []
-        self.msgs_received_from_sender[sender].append(message_id)
+        if sender not in self._msgs_received_from_sender.keys(): self._msgs_received_from_sender[sender] = []
+        self._msgs_received_from_sender[sender].append(message_id)
 
         others = to.copy().remove(self.address)
         if others:
             self.broadcast(others, message)
 
         # deliver
-        self.deliver_callback(message)
+        self._deliver_callback(message)

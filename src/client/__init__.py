@@ -216,6 +216,9 @@ class FileServiceClient(ActiveReplClient):
         :return:
         """
 
+        if not folder.is_dir():
+            raise FileNotFoundError(f"{folder} is not a directory")
+
         observer = Observer()
         handler = FolderEventHandler(folder, self.send_file_message)
         self.observers.add(observer)

@@ -81,14 +81,23 @@ class SendReceive:
             else:
                 # Handle data from a connected client
 
-                # TODO this is sus, what happens with longer messages?
-                # Should we use blocking sockets here and just wait until the whole message arrives? How?
-                data = sock.recv(1024)
-                if not data:
-                    # Remove the socket if the connection is closed
-                    logging.debug(f"Connection from {sock.getpeername()} closed.")
-                    self.sockets.remove(sock)
-                    sock.close()
-                else:
+                # accumulate all data here
+                data = b""
+
+                while True:
+                    # receive as many chunks of 1024 bytes as necessary
+                    chunk = sock.recv(1024)
+
+                    # if the chunk is empty, the message is complete
+                    if not chunk:
+                        # Remove the socket if the connection is closed
+                        logging.debug(f"Connection from {sock.getpeername()} closed.")
+                        self.sockets.remove(sock)
+                        sock.close()
+                        break
+
+                    data += chunk
+
+                if data:
                     logging.debug(f"Received data: {data}")
                     self.receive(data)

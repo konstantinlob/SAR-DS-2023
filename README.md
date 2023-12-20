@@ -11,7 +11,7 @@ The client and server can run the same computer, or communicate over a (local) n
 
 #### Setup
 
-1. Ensure Python 3 is installed.
+1. Ensure **Python 3.12** is installed. Use a virtual environment if your system Python version is not up-to-date.
 
 2. install dependencies: ``pip install -r requirements.txt``
 

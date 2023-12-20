@@ -1,3 +1,10 @@
+from sys import version_info
+# needed for typing support
+required_version = (3, 12)
+if version_info < required_version:
+    raise ImportError(f"Your Python version {version_info} is not supported. "
+                      f"Please use Python {required_version[0]}.{required_version[1]} or higher.")
+
 import argparse
 import logging
 from pathlib import Path
@@ -6,10 +13,13 @@ from client import FileServiceClient as Client
 from common.paths import parse_path
 
 argument_parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-argument_parser.add_argument('--server', type=str, help="Server address (host:port)", required=True)
+argument_parser.add_argument('--server', type=str, help="Server address (host:port)",
+                             default="localhost:50000")
 
-argument_parser.add_argument('--user', type=str, help="Automatically authenticate using this user")
-argument_parser.add_argument('--passwd', type=str, help="Automatically authenticate using this password")
+argument_parser.add_argument('--user', type=str, help="Automatically authenticate using this user",
+                             default="anonymous")
+argument_parser.add_argument('--passwd', type=str, help="Automatically authenticate using this password",
+                             default="anonymous")
 
 argument_parser.add_argument('--watch', type=str, help="Watch folders", nargs='*', default=[])
 

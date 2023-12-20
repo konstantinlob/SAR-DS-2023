@@ -131,6 +131,14 @@ from pathlib import Path
 class FileServiceServer(ActiveReplServer):
     def __init__(self, address: Address, storage_dir: Path):
         super().__init__(address)
+
+        if storage_dir.exists():
+            if not storage_dir.is_dir():
+                raise RuntimeError("Storage directory is not a directory")
+        else:
+            storage_dir.mkdir(parents=True, exist_ok=True)
+            logging.info("Storage directory does not exist, creating new directory")
+
         self.files = storage_dir
 
     def route(self, message: Message):
@@ -178,7 +186,7 @@ class FileServiceServer(ActiveReplServer):
         src_path = self._local_path(message.params['path'])
         src_path.mkdir(parents=True, exist_ok=True)
 
-        logging.info(f"Watching new path: {message.params["path"]}")
+        logging.info(f"Watching new path: {message.params['path']}")
 
         self.comm.acknowledge(message)
 
@@ -193,7 +201,7 @@ class FileServiceServer(ActiveReplServer):
         else:
             src_path.touch()
 
-        logging.info(f"File created: {message.params["src_path"]}")
+        logging.info(f"File created: {message.params['src_path']}")
 
         self.comm.acknowledge(message)
 
@@ -204,7 +212,7 @@ class FileServiceServer(ActiveReplServer):
         is_directory = message.params['is_directory']
 
         if is_directory:
-            logging.info(f"Directory modified: {message.params["src_path"]}")
+            logging.info(f"Directory modified: {message.params['src_path']}")
         else:
             new_content = message.params['new_content']
 
@@ -212,7 +220,7 @@ class FileServiceServer(ActiveReplServer):
                 with open(src_path, 'wb') as file:
                     file.write(new_content)
 
-            logging.info(f"File modified: {message.params["src_path"]} (length of new content: {len(new_content)})")
+            logging.info(f"File modified: {message.params['src_path']} (length of new content: {len(new_content)})")
 
         self.comm.acknowledge(message)
 
@@ -223,7 +231,7 @@ class FileServiceServer(ActiveReplServer):
         dest_path = self._local_path(message.params['dest_path'])
         src_path.rename(dest_path)
 
-        logging.info(f"File moved: {message.params["src_path"]} -> {message.params['dest_path']}")
+        logging.info(f"File moved: {message.params['src_path']} -> {message.params['dest_path']}")
 
         self.comm.acknowledge(message)
 
@@ -237,7 +245,7 @@ class FileServiceServer(ActiveReplServer):
         else:
             src_path.unlink()
 
-        logging.info(f"{'Directory' if is_directory else 'File'} deleted: {message.params["src_path"]}")
+        logging.info(f"{'Directory' if is_directory else 'File'} deleted: {message.params['src_path']}")
 
         self.comm.acknowledge(message)
 

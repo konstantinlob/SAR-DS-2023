@@ -4,7 +4,6 @@ r"""
 
 """
 
-
 __all__ = ['PackerError', 'EmptyBlobError', 'UnexpectedEOFError']
 
 

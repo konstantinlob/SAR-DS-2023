@@ -15,7 +15,7 @@ from server import FileServiceServer as Server, FileServiceBackupServer as Backu
 parser = argparse.ArgumentParser(description='Run an instance of the file server')
 parser.add_argument("--address", help="Own address (host:port)", default="localhost:50000")
 parser.add_argument("--storage-dir", help="Path to folder that stores the uploaded files", required=True)
-parser.add_argument("--join", help="Join an existing server group at the given address(host:port)")
+parser.add_argument("--join", help="Join an existing server group at the given address (host:port)")
 
 if __name__ == '__main__':
     args = vars(parser.parse_args())

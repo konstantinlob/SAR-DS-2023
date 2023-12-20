@@ -171,6 +171,8 @@ class FileServiceServer(ActiveReplServer):
         client = tuple(message.meta["sendreceive"]["origin"])
 
         def send_error(error: str):
+            logging.warning(f"Permission denied: client {client} does not have permission to execute requested action "
+                         f"({message.topic.name}.{message.command.value})")
             error_msg = Message(topic=Topic.CLIENT, command=Command.ERROR, params={"error": error})
             self.comm.acknowledge_with_message(error_msg, message)
 

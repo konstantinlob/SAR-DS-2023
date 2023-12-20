@@ -48,6 +48,13 @@ class BaseClient:
                 pass
 
     def route(self, message: Message):
+        match message.topic:
+            case Topic.CLIENT:
+                match message.command:
+                    case Command.ERROR:
+                        return self.handle_message_client_error(message)
+                    case Command.AUTH_SUCCESS:
+                        return self.handle_message_client_auth_success(message)
         raise NotImplementedError
 
     def send(self, message: Message):
@@ -88,30 +95,6 @@ class BaseClient:
 
         logging.info(f"Requesting authentication as '{username}' / '{password}'")
 
-
-class ActiveReplClient(BaseClient):
-    """
-    Client that accepts messages required to keep an Active Replication network running.
-    """
-
-    def route(self, message: Message):
-        match message.topic:
-            case Topic.CLIENT:
-                match message.command:
-                    case Command.AUTH_SUCCESS:
-                        return self.handle_message_client_auth_success(message)
-                    case Command.SET_SERVERS:
-                        return self.handle_message_client_set_servers(message)
-                    case Command.ADD_SERVER:
-                        return self.handle_message_client_add_server(message)
-        super().route(message)
-
-    def handle_message_client_set_servers(self, message: Message):
-
-        servers = [tuple(addr) for addr in message.params["servers"]]
-        logging.info(f"Setting servers to {servers}")
-        self.servers = servers
-
     def handle_message_client_auth_success(self, message: Message):
         if self.state != ClientState.AUTHENTICATING:
             raise RuntimeError("Unexpected authentication success message")
@@ -123,6 +106,30 @@ class ActiveReplClient(BaseClient):
             logging.info("Login successful")
         else:
             raise RuntimeError("Invalid credentials")
+
+    def handle_message_client_error(self, message: Message):
+        raise RuntimeError(f"Server raised the following error: {message.params['error']}")
+
+class ActiveReplClient(BaseClient):
+    """
+    Client that accepts messages required to keep an Active Replication network running.
+    """
+
+    def route(self, message: Message):
+        match message.topic:
+            case Topic.CLIENT:
+                match message.command:
+                    case Command.SET_SERVERS:
+                        return self.handle_message_client_set_servers(message)
+                    case Command.ADD_SERVER:
+                        return self.handle_message_client_add_server(message)
+        super().route(message)
+
+    def handle_message_client_set_servers(self, message: Message):
+
+        servers = [tuple(addr) for addr in message.params["servers"]]
+        logging.info(f"Setting servers to {servers}")
+        self.servers = servers
 
     def handle_message_client_add_server(self, message: Message):
         new_server = tuple(message.params["server"])

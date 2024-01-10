@@ -1,5 +1,13 @@
 # Active replication
 
+> ## Please note
+> This documentation file was used during development to plan the implementation.
+> It contains the notes of the development team and is not meant as a precise documentation.
+> 
+> Please read the report for a more detailed explanation of our project.
+> 
+> This file is only included for completeness.
+
 The following document describes a distributed file server system with _n_ servers and one client.
 
 ## Communication

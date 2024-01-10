@@ -1,6 +1,6 @@
-# DGLS File Service (DS Assignment 1.4)
+# DLS File Service (DS Practical Project)
 
-This utility synchronizes a set of folders between the client and the server, much like other cloud services like
+This utility synchronizes a set of folders from the client to the server, much like other cloud services like
 dropbox.
 
 The client and server can run the same computer, or communicate over a (local) network.

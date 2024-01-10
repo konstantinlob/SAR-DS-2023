@@ -43,8 +43,6 @@ class AckManager:
 
     def r_broadcast(self, to: set[Address], message: Message, expect_ack: bool = False):
         """
-        Broadcast a message without expecting an acknowledgement
-
         :param expect_ack:
         :param to:
         :param message:

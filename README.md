@@ -18,10 +18,10 @@ The client and server can run the same computer, or communicate over a (local) n
 ### Client
 
 - Make sure a network of at least one server is up and running
-- In the `src/` folder, run the client script:
+- Run the client script:
 
    ```bash
-   python3 run_client.py
+   python3 src/run_client.py
    ```
   
 - The following arguments can be used:
@@ -38,14 +38,19 @@ The client and server can run the same computer, or communicate over a (local) n
   ```
 - logging in as anonymous is possible for demonstration purposes, but you will not be able to change files on the server
 - you can use `--watch` followed by multiple paths to watch multiple folders`
+- for example, your command could look like this:
+
+  ```bash
+  python src/run_client.py --server="localhost:50000" --user=sar --passwd=sar --watch client_files other
+  ```
 
 
 ### Server
 
-- In the `src/` folder, run the server script:
+- Run the server script:
 
     ```bash
-    python3 run_server.py
+    python3 src/run_server.py
     ```
     
 - The following arguments can be used:
@@ -66,6 +71,13 @@ The client and server can run the same computer, or communicate over a (local) n
 - When running multiple servers, it is necessary to specify different addresses for each of them
 - Running the server without the `--join` option will start a new "primary" server
   / a new group consisting of only one server
+  - for example, you could start the first server like this
+    ```bash
+    python src/run_server.py --address="localhost:50000" --storage-dir=”first_server/files”
+    ```
 - Other servers can later be started with the `--join` option, they will then join the group and provide redundancy in
   case one of the servers fails
-
+  - example:
+    ```bash
+    python src/run_server.py --address="localhost:50001" --join="localhost:50000" --storage-dir=”second_server/files”
+    ```

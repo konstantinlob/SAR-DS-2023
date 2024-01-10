@@ -1,14 +1,9 @@
-from sys import version_info
-# needed for typing support
-required_version = (3, 12)
-if version_info < required_version:
-    raise ImportError(f"Your Python version {version_info} is not supported. "
-                      f"Please use Python {required_version[0]}.{required_version[1]} or higher.")
+from common.utils import enforce_requirements
+enforce_requirements()
 
 import argparse
 import logging
 from common.paths import parse_path
-from pathlib import Path
 
 from server import FileServiceServer as Server, FileServiceBackupServer as BackupServer
 
